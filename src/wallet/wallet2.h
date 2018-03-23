@@ -1139,7 +1139,7 @@ namespace tools
     bool remove_rings(const cryptonote::transaction_prefix &tx);
     bool get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
 
-    bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
+    bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     uint64_t get_segregation_fork_height() const;
 
