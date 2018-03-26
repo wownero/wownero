@@ -78,6 +78,7 @@ namespace hw {
            return false;
     }
 
+
     class device {
     protected:
         std::string  name;
@@ -89,10 +90,12 @@ namespace hw {
         virtual ~device()   {}
 
         explicit virtual operator bool() const = 0;
-
-        static const int SIGNATURE_REAL = 0;
-        static const int SIGNATURE_FAKE = 1;
-
+        enum device_mode {
+            NONE,
+            TRANSACTION_CREATE_REAL,
+            TRANSACTION_CREATE_FAKE,
+            TRANSACTION_PARSE
+        };
 
         /* ======================================================================= */
         /*                              SETUP/TEARDOWN                             */
@@ -105,6 +108,9 @@ namespace hw {
 
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
+
+        virtual bool  set_mode(device_mode mode) = 0;
+
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
