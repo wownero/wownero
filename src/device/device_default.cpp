@@ -82,9 +82,6 @@ namespace hw {
             dfns();
         }
 
-        bool  device_default::set_mode(device_mode mode) {
-            return true;
-        }
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
