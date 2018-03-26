@@ -135,10 +135,6 @@ namespace hw {
       return sec == crypto::null_skey;
     }
 
-    bool operator==(const crypto::key_derivation &d0, const crypto::key_derivation &d1) {
-      return !memcmp(&d0, &d1, sizeof(d0));
-    }
-
     /* ===================================================================== */
     /* ===                             Device                           ==== */
     /* ===================================================================== */
