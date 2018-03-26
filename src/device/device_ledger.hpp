@@ -39,7 +39,6 @@
 #else
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
-#endif
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
 
@@ -139,7 +138,6 @@ namespace hw {
         bool connect(void) override;
         bool disconnect() override;
 
-        bool  set_mode(device_mode mode) override;
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */

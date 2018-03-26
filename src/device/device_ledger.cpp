@@ -511,13 +511,12 @@ namespace hw {
         return true;
     }
 
-    bool  device_ledger::get_secret_keys(crypto::secret_key &vkey , crypto::secret_key &skey) {
+    bool  device_ledger::get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) {
         AUTO_LOCK_CMD();
+      memset(viewkey.data, 0x00, 32);
+      memset(spendkey.data, 0xFF, 32);
 
-        //secret key are represented as fake key on the wallet side
-        memset(vkey.data, 0x00, 32);
-        memset(skey.data, 0xFF, 32);
-
+      #ifdef DEBUG_HWDEVICE
         //spcialkey, normal conf handled in decrypt
         int offset;
         reset_buffer();
@@ -536,22 +535,12 @@ namespace hw {
         this->length_send = offset;
         this->exchange();
 
-        //View key is retrievied, if allowed, to speed up blockchain parsing
-        memmove(this->viewkey.data,  this->buffer_recv+0,  32);
-        if (is_fake_view_key(this->viewkey)) {
-          MDEBUG("Have Not view key");
-          this->has_view_key = false;
-        } else {
-          MDEBUG("Have view key");
-          this->has_view_key = true;
-        }
-      
-        #ifdef DEBUG_HWDEVICE
-        memmove(dbg_viewkey.data, this->buffer_recv+0, 32);
-        memmove(dbg_spendkey.data, this->buffer_recv+32, 32);
-        #endif
+        //clear key
+        memmove(ledger::viewkey.data,  this->buffer_recv+64, 32);
+        memmove(ledger::spendkey.data, this->buffer_recv+96, 32);
 
-        return true;
+      #endif
+      return true;
     }
 
     bool  device_ledger::generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key) {
@@ -596,6 +585,8 @@ namespace hw {
 
     bool device_ledger::derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index, crypto::public_key &derived_pub){
         AUTO_LOCK_CMD();
+        int offset;
+
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
         crypto::key_derivation derivation_x;
@@ -652,10 +643,10 @@ namespace hw {
 
         //pub key
         memmove(derived_pub.data, &this->buffer_recv[0], 32);
-      }
-      #ifdef DEBUG_HWDEVICE
-      hw::ledger::check32("derive_subaddress_public_key", "derived_pub", derived_pub_x.data, derived_pub.data);
-      #endif
+
+        #ifdef DEBUG_HWDEVICE
+        hw::ledger::check32("derive_subaddress_public_key", "derived_pub", derived_pub_x.data, derived_pub.data);
+        #endif
 
       return true;
     }
@@ -1042,7 +1033,7 @@ namespace hw {
 
     bool device_ledger::generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation) {
         AUTO_LOCK_CMD();
-        bool r = false;
+        int offset;
 
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
@@ -1104,23 +1095,9 @@ namespace hw {
       return r;
     }
 
-    bool device_ledger::conceal_derivation(crypto::key_derivation &derivation, const crypto::public_key &tx_pub_key, const std::vector<crypto::public_key> &additional_tx_pub_keys, const crypto::key_derivation &main_derivation, const std::vector<crypto::key_derivation> &additional_derivations) {
-      const crypto::public_key *pkey=NULL;
-      if (derivation == main_derivation) {        
-        pkey = &tx_pub_key;
-        MDEBUG("conceal derivation with main tx pub key");
-      } else {
-        for(size_t n=0; n < additional_derivations.size();++n) {
-          if(derivation == additional_derivations[n]) {
-            pkey = &additional_tx_pub_keys[n];
-            MDEBUG("conceal derivation with additionnal tx pub key");
-            break;
-          }
-        }
-      }
-      ASSERT_X(pkey, "Mismatched derivation on scan info");
-      return this->generate_key_derivation(*pkey,  crypto::null_skey, derivation);
-    } 
+
+      return true;
+    }
 
     bool device_ledger::derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res) {
         AUTO_LOCK_CMD();
@@ -1405,6 +1382,32 @@ namespace hw {
         memmove(tx_key.data, &this->buffer_recv[32], 32);
   
         return true;
+    }
+
+    bool  device_ledger::set_signature_mode(unsigned int sig_mode) {
+        AUTO_LOCK_CMD();
+        int offset ;
+
+        reset_buffer();
+
+        this->buffer_send[0] = 0x00;
+        this->buffer_send[1] = INS_SET_SIGNATURE_MODE;
+        this->buffer_send[2] = 0x01;
+        this->buffer_send[3] = 0x00;
+        this->buffer_send[4] = 0x00;
+        offset = 5;
+        //options
+        this->buffer_send[offset] = 0x00;
+        offset += 1;
+        //account
+        this->buffer_send[offset] = sig_mode;
+        offset += 1;
+
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+        
+      return true;
     }
 
     bool device_ledger::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
