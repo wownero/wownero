@@ -82,6 +82,9 @@ namespace hw {
             dfns();
         }
 
+        bool  device_default::set_mode(device_mode mode) {
+            return true;
+        }
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
@@ -274,10 +277,6 @@ namespace hw {
 
         bool device_default::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
                                                   const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
-            return true;
-        }
-
-        bool  device_default::set_signature_mode(unsigned int sig_mode) {
             return true;
         }
 
