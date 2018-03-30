@@ -89,28 +89,11 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } mainnet_hard_forks[] = {
-  // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
-
-  // version 2 starts from block 1009827, which is on or around the 20th of March, 2016. Fork time finalised on 2015-09-20. No fork voting occurs for the v2 fork.
-  { 2, 1009827, 0, 1442763710 },
-
-  // version 3 starts from block 1141317, which is on or around the 24th of September, 2016. Fork time finalised on 2016-03-21.
-  { 3, 1141317, 0, 1458558528 },
-  
-  // version 4 starts from block 1220516, which is on or around the 5th of January, 2017. Fork time finalised on 2016-09-18.
-  { 4, 1220516, 0, 1483574400 },
-  
-  // version 5 starts from block 1288616, which is on or around the 15th of April, 2017. Fork time finalised on 2017-03-14.
-  { 5, 1288616, 0, 1489520158 },  
-
-  // version 6 starts from block 1400000, which is on or around the 16th of September, 2017. Fork time finalised on 2017-08-18.
-  { 6, 1400000, 0, 1503046577 },
-
-  // version 7 starts from block 1546000, which is on or around the 6th of April, 2018. Fork time finalised on 2018-03-17.
-  { 7, 1546000, 0, 1521303150 },
+//{ 1, 1, 0, 1341378000 },
+ { 7, 1, 0, 1519605000 }
 };
-static const uint64_t mainnet_hard_fork_version_1_till = 1009826;
+
+static const uint64_t mainnet_hard_fork_version_1_till = ((uint64_t)(0));
 
 static const struct {
   uint8_t version;
@@ -118,22 +101,11 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } testnet_hard_forks[] = {
-  // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
-
-  // version 2 starts from block 624634, which is on or around the 23rd of November, 2015. Fork time finalised on 2015-11-20. No fork voting occurs for the v2 fork.
-  { 2, 624634, 0, 1445355000 },
-
-  // versions 3-5 were passed in rapid succession from September 18th, 2016
-  { 3, 800500, 0, 1472415034 },
-  { 4, 801219, 0, 1472415035 },
-  { 5, 802660, 0, 1472415036 + 86400*180 }, // add 5 months on testnet to shut the update warning up since there's a large gap to v6
-
-  { 6, 971400, 0, 1501709789 },
-  { 7, 1057027, 0, 1512211236 },
-  { 8, 1057058, 0, 1515967497 },
+//{ 1, 1, 0, 1341378000 },
+ { 7, 1, 0, 1519605000 }
 };
-static const uint64_t testnet_hard_fork_version_1_till = 624633;
+
+static const uint64_t testnet_hard_fork_version_1_till = ((uint64_t)(1));
 
 static const struct {
   uint8_t version;
@@ -2614,7 +2586,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   {
     size_t n_unmixable = 0, n_mixable = 0;
     size_t mixin = std::numeric_limits<size_t>::max();
-    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_6 ? 6 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
+    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_7 ? 7 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
     for (const auto& txin : tx.vin)
     {
       // non txin_to_key inputs will be rejected below
@@ -3695,7 +3667,7 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
       else
       {
-        LOG_ERROR("WARNING: local blockchain failed to pass a MoneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
+        LOG_ERROR("WARNING: local blockchain failed to pass a WowneroPulse checkpoint, and you could be on a fork. You should either sync up from scratch, OR download a fresh blockchain bootstrap, OR enable checkpoint enforcing with the --enforce-dns-checkpointing command-line option");
       }
     }
   }
@@ -3913,6 +3885,9 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<c
 
       crypto::hash hash;
       cn_fast_hash(data.data() + (n - first_index) * HASH_OF_HASHES_STEP, HASH_OF_HASHES_STEP * sizeof(crypto::hash), hash);
+MWARNING("block: " << height << " - " << epee::string_tools::pod_to_hex(hashes.front()));
+MWARNING("block: " << height + hashes.size() << " - " << epee::string_tools::pod_to_hex(hashes.back()));
+MWARNING("first_index: " << first_index << " - " << last_index);
       bool valid = hash == m_blocks_hash_of_hashes[n];
 
       // add to the known hashes array
@@ -4545,3 +4520,5 @@ bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t he
 namespace cryptonote {
 template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::list<transaction>&, std::list<crypto::hash>&) const;
 }
+
+
