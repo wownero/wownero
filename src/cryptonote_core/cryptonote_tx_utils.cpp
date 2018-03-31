@@ -315,10 +315,9 @@ namespace cryptonote
       tx.vin.push_back(input_to_key);
     }
 
-    if (shuffle_outs)
-    {
-      std::shuffle(destinations.begin(), destinations.end(), std::default_random_engine(crypto::rand<unsigned int>()));
-    }
+    // "Shuffle" outs
+    std::vector<tx_destination_entry> shuffled_dsts(destinations);
+    std::shuffle(shuffled_dsts.begin(), shuffled_dsts.end(), std::default_random_engine(crypto::rand<unsigned int>()));
 
     // sort ins by their key image
     std::vector<size_t> ins_order(sources.size());
@@ -365,7 +364,7 @@ namespace cryptonote
     uint64_t summary_outs_money = 0;
     //fill outputs
     size_t output_index = 0;
-    for(const tx_destination_entry& dst_entr: destinations)
+    for(const tx_destination_entry& dst_entr: shuffled_dsts)
     {
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::key_derivation derivation;
