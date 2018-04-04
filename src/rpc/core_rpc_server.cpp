@@ -227,7 +227,6 @@ namespace cryptonote
       MERROR("Failed to parse and validate tx from blob");
       return cryptonote::blobdata();
     }
-
     return get_pruned_tx_blob(tx);
   }
   //------------------------------------------------------------------------------------------------------------------------------
