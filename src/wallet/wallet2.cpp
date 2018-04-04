@@ -5595,18 +5595,7 @@ bool wallet2::find_and_save_rings(bool force)
   for (const std::pair<crypto::hash,wallet2::confirmed_transfer_details> &entry: payments)
   {
     const crypto::hash &txid = entry.first;
-    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  }
-
-  MDEBUG("Found " << std::to_string(req.txs_hashes.size()) << " transactions");
-
-  // get those transactions from the daemon
-  req.decode_as_json = false;
-  req.prune = true;
-  bool r;
-  {
-    const boost::lock_guard<boost::mutex> lock{m_daemon_rpc_mutex};
-    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
+    txs_hashes.push_back(txid);
   }
 
   MDEBUG("Found " << std::to_string(txs_hashes.size()) << " transactions");
