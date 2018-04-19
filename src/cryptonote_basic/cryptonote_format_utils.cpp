@@ -889,7 +889,7 @@ namespace cryptonote
     const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
     crypto::hash block_blob_hash = get_blob_hash(block_to_blob(b));
 
-    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
+    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612 && strcmp(CRYPTONOTE_NAME, "monero")==0)
     {
       string_tools::hex_to_pod(existing_block_id_202612, res);
       return true;
@@ -899,7 +899,7 @@ namespace cryptonote
     if (hash_result)
     {
       // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
-      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
+      if (string_tools::pod_to_hex(res) == existing_block_id_202612 && strcmp(CRYPTONOTE_NAME, "monero")==0)
       {
         LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
         res = null_hash;
