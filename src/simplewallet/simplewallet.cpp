@@ -85,9 +85,9 @@ typedef cryptonote::simple_wallet sw;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
-#define DEFAULT_MIX 7
+#define DEFAULT_MIX 9
 
-#define MIN_RING_SIZE 8 // Used to inform user about min ring size -- does not track actual protocol
+#define MIN_RING_SIZE 10 // Used to inform user about min ring size -- does not track actual protocol
 
 #define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\003"
 
@@ -2136,7 +2136,7 @@ simple_wallet::simple_wallet()
                                   "store-tx-info <1|0>\n "
                                   "  Whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference.\n "
                                   "default-ring-size <n>\n "
-                                  "  Set the default ring size (default and minimum is 5).\n "
+                                  "  Set the default ring size (default and minimum is 10).\n "
                                   "auto-refresh <1|0>\n "
                                   "  Whether to automatically synchronize new blocks from the daemon.\n "
                                   "refresh-type <full|optimize-coinbase|no-coinbase|default>\n "
