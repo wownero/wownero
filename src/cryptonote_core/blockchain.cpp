@@ -2561,7 +2561,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   {
     size_t n_unmixable = 0, n_mixable = 0;
     size_t mixin = std::numeric_limits<size_t>::max();
-    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_7 ? 7 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
+    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_9 ? 9 : hf_version >= HF_VERSION_MIN_MIXIN_7 ? 7 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
     for (const auto& txin : tx.vin)
     {
       // non txin_to_key inputs will be rejected below
