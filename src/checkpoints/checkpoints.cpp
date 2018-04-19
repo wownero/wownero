@@ -160,17 +160,29 @@ namespace cryptonote
   }
 
   bool checkpoints::init_default_checkpoints(network_type nettype)
-{
-  if (nettype == TESTNET) {
-    return true;  
-} 
-if (nettype == STAGENET) {
-    return true;  
-} 
-    
-
-  return true;
-}
+  {
+    if (nettype == TESTNET)
+    {
+      ADD_CHECKPOINT(1,     "4acea72fb2e9cb1a697930ebebf67d63c62c4dc711cc0764ba31f9437f908564");
+      ADD_CHECKPOINT(10,    "91f126cd60861f1801eeedbe6068ac997f09644bc7a3527fbc7457aa254ef399");
+      ADD_CHECKPOINT(100,   "6b9d737d08707f3361d095a31f78bbb9f828088c92699b0326cde4ea59cd82ac");
+      ADD_CHECKPOINT(1000,  "c9bed1b23c3c5a5c7cfac3cff786173b65e2cea8005d8ef686b56708281c60cf");
+      return true;
+    }
+    if (nettype == STAGENET)
+    {
+      return true;
+    }
+      ADD_CHECKPOINT(1,     "97f4ce4d7879b3bea54dcec738cd2ebb7952b4e9bb9743262310cd5fec749340");
+      ADD_CHECKPOINT(10,    "305472c87ff86d8afb3ec42634828462b0ed3d929fc05fa1ae668c3bee04837a");
+      ADD_CHECKPOINT(100,   "a92b9deae26e19322041cbc2f850fa905748ae1e5bf69b35ca90b247c5cbfc04");
+      ADD_CHECKPOINT(1000,  "62921e13030b29264439cafaf8320cf8aa039ee6ba7ba29c72f11b50a079269a");
+      ADD_CHECKPOINT(2000,  "b3e1d73e3d0243239481aa76cb075cf2428556f5dc4f2e30428ea2ba36693e97");
+      ADD_CHECKPOINT(3000,  "83a6e1ab394e80b8442b7b70b0e4c3a9fa0143e0ca51a33e829537ef5dd1bf13");
+      ADD_CHECKPOINT(4000,  "7c70722d8cb8106b4bec67e1790614cc6e98db7afd0843b96cdff6960a0e0073");
+      ADD_CHECKPOINT(5000,  "331ee74008e174e5fd1956f64c52793961b321a1366f7c6f7d324e8265df34f6");
+      return true;
+  }
 
 bool checkpoints::load_checkpoints_from_json(const std::string &json_hashfile_fullpath)
 
