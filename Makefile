@@ -62,7 +62,7 @@ release-test:
 
 release-all:
 	mkdir -p build/release
-	cd build/release && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
+	cd build/release && cmake -D BUILD_TESTS=OFF -D CMAKE_BUILD_TYPE=release ../.. && $(MAKE)
 
 release-static:
 	mkdir -p build/release
@@ -92,7 +92,7 @@ release-static-linux-armv8:
 
 release-static-linux-x86_64:
 	mkdir -p build/release
-	cd build/release && cmake -D STATIC=ON -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_BUILD_TYPE=release -D BUILD_TAG="linux-x64" ../.. && $(MAKE)
+	cd build/release && cmake -D BUILD_TESTS=OFF STATIC=ON -D ARCH="x86-64" -D BUILD_64=ON -D CMAKE_BUILD_TYPE=release -D BUILD_TAG="linux-x64" ../.. && $(MAKE)
 
 release-static-freebsd-x86_64:
 	mkdir -p build/release
