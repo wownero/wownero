@@ -90,10 +90,10 @@ Wownero uses a fixed-schedule mandatory software upgrade (hard fork) mechanism t
 Dates are provided in the format YYYY-MM-DD. 
 
 
-| Software upgrade block height | Date       | Fork version | Minimum Monero version | Recommended Monero version | Details                                                                            |  
+| Software upgrade block height | Date       | Fork version | Minimum Wownero version | Recommended Wownero version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1                              | 2018-04-01 | v7                | v0.1.0.0               | v0.1.0.0                  | Cryptonight variant 1, ringsize >= 8, sorted inputs
-| X                              | 2018-04-XX | v8                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10
+| 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
 
 X's indicate that these details have not been determined as of commit date.
 
@@ -151,7 +151,7 @@ If you already have a repo cloned, initialize and update:
 
 ### Build instructions
 
-Monero uses the CMake build system and a top-level [Makefile](Makefile) that
+Wownero uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
 
 #### On Linux and OS X
@@ -174,7 +174,7 @@ invokes cmake commands as needed.
 
 * Add `PATH="$PATH:$HOME/wownero/build/release/bin"` to `.profile`
 
-* Run Monero with `wownerod --detach`
+* Run Wownero with `wownerod --detach`
 
 * **Optional**: build and run the test suite to verify the binaries:
 
@@ -262,7 +262,7 @@ The doxygen and graphviz packages are optional and require the xbase set.
 The Boost package has a bug that will prevent librpc.a from building correctly. In order to fix this, you will have to Build boost yourself from scratch. Follow the directions here (under "Building Boost"):
 https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
 
-You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Monero.
+You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Wownero.
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
@@ -474,7 +474,7 @@ Type `gdb /path/to/wownerod`
 
 Pass command-line options with `--args` followed by the relevant arguments
 
-Type `run` to run monerod
+Type `run` to run wownerod
 
 ### Analysing memory corruption
 
