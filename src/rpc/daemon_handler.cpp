@@ -344,7 +344,7 @@ namespace rpc
 
       if (tvc.m_low_mixin)
       {
-        res.error_details = "mixin too low";
+        res.error_details = "invalid mixin";
       }
       if (tvc.m_double_spend)
       {

@@ -133,10 +133,12 @@
 
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
+#define DEFAULT_MIXIN                           9 // ring size 10
+
 #define HF_VERSION_DYNAMIC_FEE                  4
 #define HF_VERSION_MIN_MIXIN_4                  6
 #define HF_VERSION_MIN_MIXIN_7                  7
-#define HF_VERSION_MIN_MIXIN_9                  10
+#define HF_VERSION_MIN_MIXIN_9                  9
 #define HF_VERSION_ENFORCE_RCT                  6
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
