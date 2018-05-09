@@ -413,17 +413,6 @@ struct Wallet
     //! check if hard fork rules should be used
     virtual bool useForkRules(uint8_t version, int64_t early_blocks) const = 0;  
     /*!
-     * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
-     *                            if passed "payment_id" param is an empty string or not-valid payment id string
-     *                            (16 characters hexadecimal string) - random payment_id will be generated
-     *
-     * \param payment_id        - 16 characters hexadecimal string or empty string if new random payment id needs to be
-     *                            generated
-     * \return                  - 106 characters string representing integrated address
-     */
-    virtual std::string integratedAddress(const std::string &payment_id) const = 0;
-    
-   /*!
     * \brief secretViewKey     - returns secret view key
     * \return                  - secret view key
     */
