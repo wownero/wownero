@@ -732,19 +732,6 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
   return true;
 }
 
-bool simple_wallet::payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  crypto::hash payment_id;
-  if (args.size() > 0)
-  {
-    fail_msg_writer() << tr("usage: payment_id");
-    return true;
-  }
-  payment_id = crypto::rand<crypto::hash>();
-  success_msg_writer() << tr("Random payment ID: ") << payment_id;
-  return true;
-}
-
 bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if (!try_connect_to_daemon())
@@ -2226,9 +2213,6 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("password",
                            boost::bind(&simple_wallet::change_password, this, _1),
                            tr("Change the wallet's password."));
-  m_cmd_binder.set_handler("payment_id",
-                           boost::bind(&simple_wallet::payment_id, this, _1),
-                           tr("Generate a new random full size payment id. These will be unencrypted on the blockchain, see integrated_address for encrypted short payment ids."));
   m_cmd_binder.set_handler("fee",
                            boost::bind(&simple_wallet::print_fee_info, this, _1),
                            tr("Print the information about the current fee and transaction backlog."));
@@ -4277,6 +4261,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       std::string extra_nonce;
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      success_msg_writer() << tr("WARNING: Payment id is unencrypted, which might potentially compromise your privacy. An integrated address is recommended instead.\n");
     }
     else
     {
