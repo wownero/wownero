@@ -2568,7 +2568,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   {
     size_t n_unmixable = 0, n_mixable = 0;
     size_t mixin = std::numeric_limits<size_t>::max();
-    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_9 ? 9 : hf_version >= HF_VERSION_MIN_MIXIN_7 ? 7 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
+    const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_7 ? 7 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
     for (const auto& txin : tx.vin)
     {
       // non txin_to_key inputs will be rejected below
@@ -2597,6 +2597,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
+  // from v9, mixin is static
+  if (hf_version < HF_VERSION_MIN_MIXIN_9)
+  {
     if (mixin < min_mixin)
     {
       if (n_unmixable == 0)
@@ -2612,7 +2615,18 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         return false;
       }
     }
-
+    else 
+    {
+      const size_t mixin = DEFAULT_MIXIN;
+      const size_t min_mixin = DEFAULT_MIXIN;
+      if (mixin != min_mixin)
+      {
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has invalid ring size");
+        return false;
+      }
+    }
+  } 
+  
     // min/max tx version based on HF, and we accept v1 txes if having a non mixable
     const size_t max_tx_version = (hf_version <= 3) ? 1 : 2;
     if (tx.version > max_tx_version)
