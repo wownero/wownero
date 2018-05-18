@@ -227,7 +227,6 @@ namespace cryptonote
       MERROR("Failed to parse and validate tx from blob");
       return cryptonote::blobdata();
     }
-
     return get_pruned_tx_blob(tx);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1729,7 +1728,7 @@ namespace cryptonote
     std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked, req.recent_cutoff);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked, req.recent_cutoff, req.min_count);
     }
     catch (const std::exception &e)
     {
@@ -2083,10 +2082,27 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_output_distribution(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp)
   {
+    PERF_TIMER(on_get_output_distribution);
     try
     {
       for (uint64_t amount: req.amounts)
       {
+        static struct D
+        {
+          boost::mutex mutex;
+          std::vector<uint64_t> cached_distribution;
+          uint64_t cached_from, cached_to, cached_start_height, cached_base;
+          bool cached;
+          D(): cached_from(0), cached_to(0), cached_start_height(0), cached_base(0), cached(false) {}
+        } d;
+        boost::unique_lock<boost::mutex> lock(d.mutex);
+
+        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
+        {
+          res.distributions.push_back({amount, d.cached_start_height, d.cached_distribution, d.cached_base});
+          continue;
+        }
+
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
         if (!m_core.get_output_distribution(amount, req.from_height, start_height, distribution, base))
@@ -2095,12 +2111,29 @@ namespace cryptonote
           error_resp.message = "Failed to get rct distribution";
           return false;
         }
+        if (req.to_height > 0 && req.to_height >= req.from_height)
+        {
+          uint64_t offset = std::max(req.from_height, start_height);
+          if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
+            distribution.resize(req.to_height - offset + 1);
+        }
         if (req.cumulative)
         {
           distribution[0] += base;
           for (size_t n = 1; n < distribution.size(); ++n)
             distribution[n] += distribution[n-1];
         }
+
+        if (amount == 0)
+        {
+          d.cached_from = req.from_height;
+          d.cached_to = req.to_height;
+          d.cached_distribution = distribution;
+          d.cached_start_height = start_height;
+          d.cached_base = base;
+          d.cached = true;
+        }
+
         res.distributions.push_back({amount, start_height, std::move(distribution), base});
       }
     }
@@ -2122,7 +2155,7 @@ namespace cryptonote
     , "Port for RPC server"
     , std::to_string(config::RPC_DEFAULT_PORT)
     , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-    , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+    , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
         if (testnet_stagenet[0] && defaulted)
           return std::to_string(config::testnet::RPC_DEFAULT_PORT);
         else if (testnet_stagenet[1] && defaulted)
