@@ -1975,6 +1975,28 @@ bool simple_wallet::set_segregation_height(const std::vector<std::string> &args/
 
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  success_msg_writer() << 
+  "Commands:\n" <<
+  tr("  \"balance\" - Show balance.\n") <<
+  tr("  \"address\" - Show wallet's address.\n") <<
+  tr("  \"integrated_address\" - Show receiving address with an integrated payment ID.\n") <<
+  tr("  \"transfer [address|integrated_address] [amount]\" - Send WOW to an address.\n") <<
+  tr("  \"show_transfers [in|out|pending|failed|pool]\" - Show transactions.\n") <<
+  tr("  \"payments [payment ID]\" - Show transaction of a given payment ID.\n") <<
+  tr("  \"sweep_all [address]\" - Send whole balance to another wallet.\n") <<
+  tr("  \"seed\" - Show secret 25 words that can be used to recover this wallet.\n") <<
+  tr("  \"refresh\" - Synchronize wallet with the Wownero network.\n") <<
+  tr("  \"status\" - Check current status of wallet.\n") <<
+  tr("  \"version\" - Check software version.\n") <<
+  tr("  \"help\" - Show simplified help section.\n") <<
+  tr("  \"help_advanced\" - Show advanced help section.\n") << 
+  tr("  \"save\" - Save wallet.\n") <<
+  "  \"exit\" - Exit wallet.\n\n";
+  return true;
+}
+
+bool simple_wallet::help_advanced(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
   if(args.empty())
   {
     success_msg_writer() << get_commands_str();
@@ -2322,8 +2344,12 @@ simple_wallet::simple_wallet()
                            tr("Returns version information"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
-                           tr("help [<command>]"),
-                           tr("Show the help section or the documentation about a <command>."));
+                           tr("help"),
+                           tr("Show simplified help section."));
+  m_cmd_binder.set_handler("help_advanced",
+                           boost::bind(&simple_wallet::help_advanced, this, _1),
+                           tr("help_advanced [<command>]"),
+                           tr("Show the advanced help section or the documentation about a <command>."));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_variable(const std::vector<std::string> &args)
@@ -3314,8 +3340,9 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     "**********************************************************************\n" <<
     tr("Your wallet has been generated!\n"
     "To start synchronizing with the daemon, use the \"refresh\" command.\n"
-    "Use the \"help\" command to see the list of available commands.\n"
-    "Use \"help <command>\" to see a command's documentation.\n"
+    "Use the \"help\" command to see a simplified list of available commands.\n"
+    "Use the \"help_advanced\" command to see an advanced list of available commands.\n"
+    "Use \"help_advanced <command>\" to see a command's documentation.\n"
     "Always use the \"exit\" command when closing wownero-wallet-cli to save \n"
     "your current session's state. Otherwise, you might need to synchronize \n"
     "your wallet again (your wallet keys are NOT at risk in any case).\n")
@@ -3542,8 +3569,9 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
   }
   success_msg_writer() <<
     "**********************************************************************\n" <<
-    tr("Use the \"help\" command to see the list of available commands.\n") <<
-    tr("Use \"help <command>\" to see a command's documentation.\n") <<
+    tr("Use the \"help\" command to see a simplified list of available commands.\n") <<
+    tr("Use the \"help_advanced\" command to see an advanced list of available commands.\n") <<
+    tr("Use \"help_advanced <command>\" to see a command's documentation.\n") <<
     "**********************************************************************";
   return true;
 }
