@@ -2284,12 +2284,14 @@ namespace cryptonote
       uint64_t from_height;
       uint64_t to_height;
       bool cumulative;
+      bool binary;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amounts)
         KV_SERIALIZE_OPT(from_height, (uint64_t)0)
         KV_SERIALIZE_OPT(to_height, (uint64_t)0)
         KV_SERIALIZE_OPT(cumulative, false)
+        KV_SERIALIZE_OPT(binary, true)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2297,13 +2299,18 @@ namespace cryptonote
     {
       uint64_t amount;
       uint64_t start_height;
+      bool binary;
       std::vector<uint64_t> distribution;
       uint64_t base;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
         KV_SERIALIZE(start_height)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(distribution)
+        KV_SERIALIZE(binary)
+        if (this_ref.binary)
+          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(distribution)
+        else
+          KV_SERIALIZE(distribution)
         KV_SERIALIZE(base)
       END_KV_SERIALIZE_MAP()
     };
@@ -2312,10 +2319,12 @@ namespace cryptonote
     {
       std::string status;
       std::vector<distribution> distributions;
+      bool untrusted;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(distributions)
+        KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
   };
