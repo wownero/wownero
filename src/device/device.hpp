@@ -204,4 +204,3 @@ namespace hw {
 
     device& get_device(const std::string device_descriptor) ;
 }
-
