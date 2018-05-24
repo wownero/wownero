@@ -39,27 +39,13 @@ find_package(Miniupnpc REQUIRED)
 
 message(STATUS "Using in-tree miniupnpc")
 
-  set(UPNP_STATIC false PARENT_SCOPE)
-  set(UPNP_INCLUDE ${MINIUPNP_INCLUDE_DIR} PARENT_SCOPE)
-  set(UPNP_LIBRARIES ${MINIUPNP_LIBRARY} PARENT_SCOPE)
-else()
-  if(STATIC)
-    message(STATUS "Using miniupnpc from local source tree for static build")
-  else()
-    message(STATUS "Using miniupnpc from local source tree (/external/miniupnp/miniupnpc)")
-  endif()
+add_subdirectory(miniupnp/miniupnpc)
 
-  add_subdirectory(miniupnp/miniupnpc)
-
-  set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
-  if(MSVC)
-    set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
-  elseif(NOT MSVC)
-    set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
-  endif()
-
-  set(UPNP_STATIC true PARENT_SCOPE)
-  set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
+set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
+if(MSVC)
+  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
+elseif(NOT MSVC)
+  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
 endif()
 
 set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
