@@ -177,7 +177,7 @@ uint16_t const P2P_DEFAULT_PORT  =  11180;
 uint16_t const RPC_DEFAULT_PORT =  11181;
 uint16_t const ZMQ_RPC_DEFAULT_PORT =  11182;
     boost::uuids::uuid const NETWORK_ID = { {
-0x11, 0x33, 0xFF, 0x77, 0x61, 0x04, 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x11
+0x11, 0x33, 0xFF, 0x77, 0x61, 0x04, 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA7, 0xA4, 0x12
       } }; // Bender's daydream
 std::string const GENESIS_TX = "013c01ff0001ffffffffff1f029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd088071210160eb755f618a2336055dee60f307fe0ded81c5b37b53d310175ca9ee69b0c8ad";
     uint32_t const GENESIS_NONCE = 70;

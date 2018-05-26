@@ -105,6 +105,7 @@ static const struct {
 //{ 1, 1, 0, 1341378000 },
  { 7, 1, 0, 1519605000 },
  { 8, 10, 0, 1523255371 }, 
+ { 9, 20, 0, 1527315105 },
 };
 
 static const uint64_t testnet_hard_fork_version_1_till = ((uint64_t)(1));
