@@ -44,10 +44,12 @@
 #define CURRENT_TRANSACTION_VERSION                     2
 #define CURRENT_BLOCK_MAJOR_VERSION                     7
 #define CURRENT_BLOCK_MINOR_VERSION                     7
+#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V3           420
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           300*2
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             4
 
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2            11
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
