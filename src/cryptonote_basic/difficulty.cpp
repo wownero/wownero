@@ -240,4 +240,37 @@ namespace cryptonote {
     next_difficulty = static_cast<uint64_t>(nextDifficulty);
     return next_difficulty;
   }
+
+// LWMA-2 difficulty algorithm
+// Copyright (c) 2017-2018 Zawy, MIT License
+// See commented version in https://github.com/zawy12/difficulty-algorithms/issues/3 
+// for required config file changes.
+
+difficulty_type next_difficulty_v3(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
+ 
+    int64_t  T = DIFFICULTY_TARGET_V2;
+    int64_t  N = DIFFICULTY_WINDOW_V2;
+    int64_t  FTL = CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V3;
+    int64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
+
+    // TODO: change initial_difficulty_guess before v9 mainnet hard fork 
+    // if ( height >= fork_height && height <= fork_height+N )  { return difficulty_guess; }
+    uint64_t initial_difficulty_guess = 100;
+    if (timestamps.size() <= static_cast<uint64_t>(N)) {
+      return initial_difficulty_guess;
+    }
+
+    for ( int64_t i = 1; i <= N; i++) {
+      ST = std::max(-FTL, std::min( (int64_t)(timestamps[i]) - (int64_t)(timestamps[i-1]), 6*T));
+      L +=  ST * i ;
+      if ( i > N-3 ) { sum_3_ST += ST; }
+    }
+
+    next_D = ((cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+
+    prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
+    if ( sum_3_ST < (8*T)/10) {  next_D = (prev_D*110)/100; }
+
+    return static_cast<uint64_t>(next_D);
+  }
 }

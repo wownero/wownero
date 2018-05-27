@@ -833,8 +833,12 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   size_t target = DIFFICULTY_TARGET_V2;
   if (version == 7) {
     return next_difficulty(timestamps, difficulties, target);
-  } else {
+  } 
+  else if (version == 8) {
     return next_difficulty_v2(timestamps, difficulties, target);
+    }
+  else {
+    return next_difficulty_v3(timestamps, difficulties);
   }
 }
 //------------------------------------------------------------------
@@ -1047,8 +1051,12 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   // calculate the difficulty target for the block and return it
   if (version == 7) {
     return next_difficulty(timestamps, cumulative_difficulties, target);
-  } else {
+  } 
+  else if (version == 8) {
     return next_difficulty_v2(timestamps, cumulative_difficulties, target);
+  }  
+  else {
+    return next_difficulty_v3(timestamps, cumulative_difficulties);
   }
 }
 
