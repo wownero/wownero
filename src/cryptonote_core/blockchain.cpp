@@ -105,6 +105,7 @@ static const struct {
 //{ 1, 1, 0, 1341378000 },
  { 7, 1, 0, 1519605000 },
  { 8, 10, 0, 1523255371 }, 
+ { 9, 100, 0, 1537370510 },
 };
 
 static const uint64_t testnet_hard_fork_version_1_till = ((uint64_t)(1));
@@ -785,10 +786,10 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 
   uint8_t version = get_current_hard_fork_version();
   size_t difficulty_blocks_count;
-  if (version == 7) {
-    difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT;
-  } else {
+  if (version >= 8) {
     difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
+  } else {
+    difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT;
   }
 
   // ND: Speedup
@@ -832,8 +833,12 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   size_t target = DIFFICULTY_TARGET_V2;
   if (version == 7) {
     return next_difficulty(timestamps, difficulties, target);
-  } else {
+  } 
+  else if (version == 8) {
     return next_difficulty_v2(timestamps, difficulties, target);
+    }
+  else {
+    return next_difficulty_v3(timestamps, difficulties, height);
   }
 }
 //------------------------------------------------------------------
@@ -984,10 +989,11 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   std::vector<difficulty_type> cumulative_difficulties;
   uint8_t version = get_current_hard_fork_version();
   size_t difficulty_blocks_count;
-  if (version == 7) {
-    difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT;
-  } else {
+  size_t height = m_db->height();
+  if (version >= 8) {
     difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
+  } else {
+    difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT;
   }
 
   // if the alt chain isn't long enough to calculate the difficulty target
@@ -1013,7 +1019,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     }
 
     // make sure we haven't accidentally grabbed too many blocks...maybe don't need this check?
-    CHECK_AND_ASSERT_MES((alt_chain.size() + timestamps.size()) <= difficulty_blocks_count, false, "Internal error, alt_chain.size()[" << alt_chain.size() << "] + vtimestampsec.size()[" << timestamps.size() << "] NOT <= DIFFICULTY_WINDOW[]" << DIFFICULTY_BLOCKS_COUNT);
+    CHECK_AND_ASSERT_MES((alt_chain.size() + timestamps.size()) <= difficulty_blocks_count, false, "Internal error, alt_chain.size()[" << alt_chain.size() << "] + vtimestampsec.size()[" << timestamps.size() << "] NOT <= DIFFICULTY_WINDOW[]" << difficulty_blocks_count);
 
     for (auto it : alt_chain)
     {
@@ -1042,12 +1048,16 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 
   // FIXME: This will fail if fork activation heights are subject to voting
   size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
-
+  
   // calculate the difficulty target for the block and return it
   if (version == 7) {
     return next_difficulty(timestamps, cumulative_difficulties, target);
-  } else {
+  } 
+  else if (version == 8) {
     return next_difficulty_v2(timestamps, cumulative_difficulties, target);
+  }  
+  else {
+    return next_difficulty_v3(timestamps, cumulative_difficulties, height);
   }
 }
 
@@ -3212,10 +3222,10 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  uint64_t cryptonote_block_future_time_limit = get_current_hard_fork_version() < 7 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2;
+  uint64_t cryptonote_block_future_time_limit = get_current_hard_fork_version() >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
   if(b.timestamp > get_adjusted_time() + cryptonote_block_future_time_limit)
   {
-    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", bigger than adjusted time + 2 hours");
+    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", bigger than adjusted time + 10 minutes");
     return false;
   }
 

@@ -81,7 +81,12 @@
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V2                      DIFFICULTY_WINDOW_V2 + 1 // added +1 to make N=N
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
-
+#define DIFFICULTY_HEIGHT                               55000 // v9 fork height
+#define DIFFICULTY_GUESS                                100000000 // 100m
+#define DIFFICULTY_MINIMUM                              10000000 // minimum difficulty set to 10m
+#define DIFFICULTY_TESTNET_HEIGHT                       100
+#define DIFFICULTY_TESTNET_GUESS                        5069
+#define DIFFICULTY_TESTNET_MINIMUM                      4069
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS

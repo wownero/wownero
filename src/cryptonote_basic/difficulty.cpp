@@ -240,4 +240,55 @@ namespace cryptonote {
     next_difficulty = static_cast<uint64_t>(nextDifficulty);
     return next_difficulty;
   }
+
+// LWMA-2 difficulty algorithm 
+// Copyright (c) 2017-2018 Zawy, MIT License
+// The code below has been tailored to Wownero.
+// Don’t be an igit and copy and paste it into 
+// to your shitcoin without reading the comments in 
+// https://github.com/zawy12/difficulty-algorithms/issues/3
+
+  difficulty_type next_difficulty_v3(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t height) {
+
+    int64_t  T = DIFFICULTY_TARGET_V2;
+    int64_t  N = DIFFICULTY_WINDOW_V2;
+    int64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
+
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
+
+    if ( cryptonote::MAINNET && height <= DIFFICULTY_HEIGHT ){ 
+      return static_cast<uint64_t>(DIFFICULTY_GUESS); 
+    }
+
+    if ( cryptonote::TESTNET && height <= DIFFICULTY_TESTNET_HEIGHT ){ 
+      return static_cast<uint64_t>(DIFFICULTY_TESTNET_GUESS);
+    }
+
+    for ( int64_t i = 1; i <= N; i++ ) {  
+      ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
+      ST = std::max(-4*T, std::min(ST, 6*T));
+      L +=  ST * i ; 
+      if ( i > N-3 ) { 
+        sum_3_ST += ST; 
+      } 
+    }
+    next_D = (static_cast<int64_t>(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+
+    prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
+    next_D = std::max((prev_D*67)/100, std::min(next_D, (prev_D*150)/100));
+
+    if ( sum_3_ST < (8*T)/10) { 
+      next_D = std::max(next_D,(prev_D*108)/100); 
+    }
+
+    if ( cryptonote::MAINNET && next_D < DIFFICULTY_MINIMUM ) { 
+      return static_cast<uint64_t>(DIFFICULTY_MINIMUM); 
+    }
+    else if ( cryptonote::TESTNET && next_D < DIFFICULTY_TESTNET_MINIMUM ) { 
+      return static_cast<uint64_t>(DIFFICULTY_TESTNET_MINIMUM); 
+    }
+    else { 
+      return static_cast<uint64_t>(next_D); 
+    }
+  }
 }
