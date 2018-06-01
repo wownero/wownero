@@ -1663,7 +1663,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   }
   else
   {
-    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 7))
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 20))
     {
       MDEBUG("Daemon is recent enough, asking for pruned blocks");
       req.prune = true;
