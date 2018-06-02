@@ -1663,7 +1663,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   }
   else
   {
-    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 7))
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 20))
     {
       MDEBUG("Daemon is recent enough, asking for pruned blocks");
       req.prune = true;
@@ -5620,24 +5620,7 @@ bool wallet2::find_and_save_rings(bool force)
     txs_hashes.push_back(txid);
   }
 
-  MDEBUG("Found " << std::to_string(req.txs_hashes.size()) << " transactions");
-
-  // get those transactions from the daemon
-  req.decode_as_json = false;
-  req.prune = true;
-  bool r;
-  {
-    const boost::lock_guard<boost::mutex> lock{m_daemon_rpc_mutex};
-    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
-  }
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gettransactions");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gettransactions");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "gettransactions");
-  THROW_WALLET_EXCEPTION_IF(res.txs.size() != req.txs_hashes.size(), error::wallet_internal_error,
-    "daemon returned wrong response for gettransactions, wrong txs count = " +
-    std::to_string(res.txs.size()) + ", expected " + std::to_string(req.txs_hashes.size()));
-
-  MDEBUG("Scanning " << res.txs.size() << " transactions");
+  MDEBUG("Found " << std::to_string(txs_hashes.size()) << " transactions");
 
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
@@ -5647,7 +5630,7 @@ bool wallet2::find_and_save_rings(bool force)
   for (size_t slice = 0; slice < txs_hashes.size(); slice += SLICE_SIZE)
   {
     req.decode_as_json = false;
-    req.prune = true;
+    req.prune = false;
     req.txs_hashes.clear();
     size_t ntxes = slice + SLICE_SIZE > txs_hashes.size() ? txs_hashes.size() - slice : SLICE_SIZE;
     for (size_t s = slice; s < slice + ntxes; ++s)
