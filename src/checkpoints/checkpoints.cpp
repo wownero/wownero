@@ -283,6 +283,3 @@ bool checkpoints::load_checkpoints_from_json(const std::string &json_hashfile_fu
     return result;
   }
 }
-
-
-

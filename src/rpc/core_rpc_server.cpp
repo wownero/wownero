@@ -2100,6 +2100,13 @@ namespace cryptonote
         if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
         {
           res.distributions.push_back({amount, d.cached_start_height, d.cached_distribution, d.cached_base});
+          if (req.cumulative)
+          {
+            auto &distribution = res.distributions.back().distribution;
+            distribution[0] += d.cached_base;
+            for (size_t n = 1; n < distribution.size(); ++n)
+              distribution[n] += distribution[n-1];
+          }
           continue;
         }
 
@@ -2117,12 +2124,6 @@ namespace cryptonote
           if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
             distribution.resize(req.to_height - offset + 1);
         }
-        if (req.cumulative)
-        {
-          distribution[0] += base;
-          for (size_t n = 1; n < distribution.size(); ++n)
-            distribution[n] += distribution[n-1];
-        }
 
         if (amount == 0)
         {
@@ -2132,6 +2133,13 @@ namespace cryptonote
           d.cached_start_height = start_height;
           d.cached_base = base;
           d.cached = true;
+        }
+
+        if (req.cumulative)
+        {
+          distribution[0] += base;
+          for (size_t n = 1; n < distribution.size(); ++n)
+            distribution[n] += distribution[n-1];
         }
 
         res.distributions.push_back({amount, start_height, std::move(distribution), base});
