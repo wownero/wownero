@@ -2103,16 +2103,10 @@ namespace cryptonote
           res.distributions.push_back({amount, d.cached_start_height, d.cached_distribution, d.cached_base});
           if (req.cumulative)
           {
-            res.distributions.push_back({amount, slot.start_height, slot.distribution, slot.base});
-            found = true;
-            if (req.cumulative)
-            {
-              auto &distribution = res.distributions.back().distribution;
-              distribution[0] += slot.base;
-              for (size_t n = 1; n < distribution.size(); ++n)
-                distribution[n] += distribution[n-1];
-            }
-            break;
+            auto &distribution = res.distributions.back().distribution;
+            distribution[0] += d.cached_base;
+            for (size_t n = 1; n < distribution.size(); ++n)
+              distribution[n] += distribution[n-1];
           }
           continue;
         }
@@ -2125,6 +2119,13 @@ namespace cryptonote
           {
             res.distributions.push_back({amount, slot.start_height, slot.distribution, slot.base});
             found = true;
+            if (req.cumulative)
+            {
+              auto &distribution = res.distributions.back().distribution;
+              distribution[0] += slot.base;
+              for (size_t n = 1; n < distribution.size(); ++n)
+                distribution[n] += distribution[n-1];
+            }
             break;
           }
         }
