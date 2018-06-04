@@ -2545,6 +2545,7 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
   tr("  \"refresh\" - Synchronize wallet with the Wownero network.\n") <<
   tr("  \"status\" - Check current status of wallet.\n") <<
   tr("  \"version\" - Check software version.\n") <<
+  tr("  \"donate [amount]\" - Donate WOW to dev team.\n") <<
   tr("  \"help\" - Show simplified help section.\n") <<
   tr("  \"help_advanced\" - Show advanced help section.\n") << 
   tr("  \"save\" - Save wallet.\n") <<
@@ -2638,7 +2639,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::donate, this, _1),
                            tr(USAGE_DONATE),
-                           tr("Donate <amount> to the development team (donate.getmonero.org)."));
+                           tr("Donate <amount> to the development team"));
   m_cmd_binder.set_handler("sign_transfer",
                            boost::bind(&simple_wallet::sign_transfer, this, _1),
                            tr(USAGE_SIGN_TRANSFER),
@@ -6438,7 +6439,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   if (!payment_id_str.empty())
     local_args.push_back(payment_id_str);
   if (m_wallet->nettype() == cryptonote::MAINNET)
-    message_writer() << (boost::format(tr("Donating %s %s to The Monero Project (donate.getmonero.org or %s).")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % MONERO_DONATION_ADDR).str();
+    message_writer() << (boost::format(tr("Donating %s %s to help get some stripers through college.")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point())).str();
   else
     message_writer() << (boost::format(tr("Donating %s %s to %s.")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % address_str).str();
   transfer(local_args);
