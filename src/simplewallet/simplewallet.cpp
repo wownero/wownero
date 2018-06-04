@@ -1950,6 +1950,7 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
   tr("  \"refresh\" - Synchronize wallet with the Wownero network.\n") <<
   tr("  \"status\" - Check current status of wallet.\n") <<
   tr("  \"version\" - Check software version.\n") <<
+  tr("  \"donate [amount]\" - Donate WOW to dev team.\n") <<
   tr("  \"help\" - Show simplified help section.\n") <<
   tr("  \"help_advanced\" - Show advanced help section.\n") << 
   tr("  \"save\" - Save wallet.\n") <<
@@ -2038,8 +2039,10 @@ simple_wallet::simple_wallet()
                            tr("Send a single output of the given key image to an address without change."));
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::donate, this, _1),
-                           tr("donate [index=<N1>[,<N2>,...]] [<priority>] <amount> [<payment_id>]"),
-                           tr("Donate <amount> to the development team (donate.getmonero.org)."));
+                           tr("donate [index=<N1>[,<N2>,...]] [<priority>] <amount> [<payment_id>]\n\n"
+                           "   Development fund:\n"
+                           "   Address: Wo3MWeKwtA918DU4c69hVSNgejdWFCRCuWjShRY66mJkU2Hv58eygJWDJS1MNa2Ge5M1WjUkGHuLqHkweDxwZZU42d16v94mP\n"
+                           "   Viewkey: e62e40bfd5ca7e3a7f199602a3c97df511780489e1c1861884b00c28abaea406"));
   m_cmd_binder.set_handler("sign_transfer",
                            boost::bind(&simple_wallet::sign_transfer, this, _1),
                            tr("sign_transfer [export]"),
@@ -5175,7 +5178,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   local_args.push_back(amount_str);
   if (!payment_id_str.empty())
     local_args.push_back(payment_id_str);
-  message_writer() << tr("Donating ") << amount_str << " to The Monero Project (donate.getmonero.org or "<< MONERO_DONATION_ADDR <<").";
+  message_writer() << tr("Donating ") << amount_str << " WOW to help get some stripers through college.";
   transfer_new(local_args);
   return true;
 }
