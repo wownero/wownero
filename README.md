@@ -141,13 +141,10 @@ build the library binary manually. This can be done with the following command `
 
 ### Cloning the repository
 
-Clone recursively to pull-in needed submodule(s):
+`$ git clone https://github.com/wownero/wownero`
 
-`$ git clone --recursive https://github.com/wownero/wownero`
-
-If you already have a repo cloned, initialize and update:
-
-`$ cd wownero && git submodule init && git submodule update`
+Submodules are fetched and updated automatically. If you wish to
+do this manually, run CMake flag `-DMANUAL_SUBMODULES=ON` to opt out.
 
 ### Build instructions
 
