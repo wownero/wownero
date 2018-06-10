@@ -5178,7 +5178,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   local_args.push_back(amount_str);
   if (!payment_id_str.empty())
     local_args.push_back(payment_id_str);
-  message_writer() << tr("Donating ") << amount_str << " WOW to help get some stripers through college.";
+  message_writer() << tr("Donating ") << amount_str << " wownero to help get some stripers through college.";
   transfer_new(local_args);
   return true;
 }
