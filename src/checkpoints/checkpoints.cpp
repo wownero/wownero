@@ -163,6 +163,9 @@ namespace cryptonote
   {
     if (nettype == TESTNET)
     {
+      ADD_CHECKPOINT(1,     "0e7e25ec4d39a98888e5b7dda643d79eb321802de4bd03686a2936b7a455a7e3");
+      ADD_CHECKPOINT(10,    "37d2c2d9e19f2334135e2ef41184c55f5e5d1c8789a4efcc25bec775a15d783f"); //Hard fork to v8
+      ADD_CHECKPOINT(20,    "6550adca5c4f3194609c4cd719a98fbd70c32c925ac011fd3f5d678c0961f431"); //Hard fork to v9
       return true;
     }
     if (nettype == STAGENET)
