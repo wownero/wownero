@@ -1343,6 +1343,113 @@ bool simple_wallet::print_ring(const std::vector<std::string> &args)
 bool simple_wallet::set_ring(const std::vector<std::string> &args)
 {
   crypto::key_image key_image;
+
+  // try filename first
+  if (args.size() == 1)
+  {
+    if (!epee::file_io_utils::is_file_exist(args[0]))
+    {
+      fail_msg_writer() << tr("File doesn't exist");
+      return true;
+    }
+
+    char str[4096];
+    std::unique_ptr<FILE, tools::close_file> f(fopen(args[0].c_str(), "r"));
+    if (f)
+    {
+      while (!feof(f.get()))
+      {
+        if (!fgets(str, sizeof(str), f.get()))
+          break;
+        const size_t len = strlen(str);
+        if (len > 0 && str[len - 1] == '\n')
+          str[len - 1] = 0;
+        if (!str[0])
+          continue;
+        char key_image_str[65], type_str[9];
+        int read_after_key_image = 0, read = 0;
+        int fields = sscanf(str, "%64[abcdefABCDEF0123456789] %n%8s %n", key_image_str, &read_after_key_image, type_str, &read);
+        if (fields != 2)
+        {
+          fail_msg_writer() << tr("Invalid ring specification: ") << str;
+          continue;
+        }
+        key_image_str[64] = 0;
+        type_str[8] = 0;
+        crypto::key_image key_image;
+        if (read_after_key_image == 0 || !epee::string_tools::hex_to_pod(key_image_str, key_image))
+        {
+          fail_msg_writer() << tr("Invalid key image: ") << str;
+          continue;
+        }
+        if (read == read_after_key_image+8 || (strcmp(type_str, "absolute") && strcmp(type_str, "relative")))
+        {
+          fail_msg_writer() << tr("Invalid ring type, expected relative or abosolute: ") << str;
+          continue;
+        }
+        bool relative = !strcmp(type_str, "relative");
+        if (read < 0 || (size_t)read > strlen(str))
+        {
+          fail_msg_writer() << tr("Error reading line: ") << str;
+          continue;
+        }
+        bool valid = true;
+        std::vector<uint64_t> ring;
+        const char *ptr = str + read;
+        while (*ptr)
+        {
+          unsigned long offset;
+          int elements = sscanf(ptr, "%lu %n", &offset, &read);
+          if (elements == 0 || read <= 0 || (size_t)read > strlen(str))
+          {
+            fail_msg_writer() << tr("Error reading line: ") << str;
+            valid = false;
+            break;
+          }
+          ring.push_back(offset);
+          ptr += read;
+        }
+        if (!valid)
+          continue;
+        if (ring.empty())
+        {
+          fail_msg_writer() << tr("Invalid ring: ") << str;
+          continue;
+        }
+        if (relative)
+        {
+          for (size_t n = 1; n < ring.size(); ++n)
+          {
+            if (ring[n] <= 0)
+            {
+              fail_msg_writer() << tr("Invalid relative ring: ") << str;
+              valid = false;
+              break;
+            }
+          }
+        }
+        else
+        {
+          for (size_t n = 1; n < ring.size(); ++n)
+          {
+            if (ring[n] <= ring[n-1])
+            {
+              fail_msg_writer() << tr("Invalid absolute ring: ") << str;
+              valid = false;
+              break;
+            }
+          }
+        }
+        if (!valid)
+          continue;
+        if (!m_wallet->set_ring(key_image, ring, relative))
+          fail_msg_writer() << tr("Failed to set ring for key image: ") << key_image << ". " << tr("Continuing.");
+      }
+      f.reset();
+    }
+    return true;
+  }
+
   if (args.size() < 3)
   {
     fail_msg_writer() << tr("usage: set_ring <key_image> absolute|relative <index> [<index>...]");
