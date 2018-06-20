@@ -74,7 +74,10 @@ namespace {
       << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
       << "hash: " << header.hash << std::endl
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
-      << "reward: " << boost::lexical_cast<std::string>(header.reward);
+      << "POW hash: " << header.pow_hash << std::endl
+      << "block size: " << header.block_size << std::endl
+      << "num txes: " << header.num_txes << std::endl
+      << "reward: " << cryptonote::print_money(header.reward);
   }
 
   std::string get_human_time_ago(time_t t, time_t now)
