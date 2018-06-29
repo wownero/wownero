@@ -1574,6 +1574,9 @@ namespace cryptonote
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << main_message << ENDL
         << ENDL
+        << "Caution: Wownero is highly experimental software compiled by a ragtag team of stoners with as much" << ENDL
+        << "skill as Verge developers. Storing your life savings in WOW is probably not a good idea." << ENDL
+        << ENDL
         << "You can set the level of process detailization through \"set_log <level|categories>\" command," << ENDL
         << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)." << ENDL
         << ENDL
