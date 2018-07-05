@@ -256,9 +256,8 @@ difficulty_type next_difficulty_v3(std::vector<std::uint64_t> timestamps, std::v
     // TODO: change initial_difficulty_guess before v9 mainnet hard fork 
     // if ( height >= fork_height && height <= fork_height+N )  { return difficulty_guess; }
     uint64_t initial_difficulty_guess = 100;
-    if (timestamps.size() <= static_cast<uint64_t>(N)) {
-      return initial_difficulty_guess;
-    }
+    if (timestamps.size() <= 6 ) {   return initial_difficulty_guess;   }
+    else if ( timestamps.size() < static_cast<uint64_t>(N +1) ) { N=timestamps.size()-1;  }
 
     for ( int64_t i = 1; i <= N; i++) {
       ST = std::max(-FTL, std::min( (int64_t)(timestamps[i]) - (int64_t)(timestamps[i-1]), 6*T));
@@ -266,9 +265,10 @@ difficulty_type next_difficulty_v3(std::vector<std::uint64_t> timestamps, std::v
       if ( i > N-3 ) { sum_3_ST += ST; }
     }
 
-    next_D = ((cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+    next_D = ((int64_t)(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
 
     prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
+    next_D = std::max((prev_D*67)/100, std::min( next_D, (prev_D*150)/100));
     if ( sum_3_ST < (8*T)/10) {  next_D = (prev_D*110)/100; }
 
     return static_cast<uint64_t>(next_D);
