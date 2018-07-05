@@ -372,13 +372,20 @@ namespace nodetool
     if (nettype == cryptonote::TESTNET) {
              full_addrs.insert("206.189.166.14:11180");
              full_addrs.insert("104.236.48.55:11180");
-    } else {
+    }
+    else if (nettype == cryptonote::STAGENET)
+    {
+            full_addrs.insert("206.189.166.14:38080");
+            full_addrs.insert("104.236.48.55:38080");
+    }
+    else
+    {
              full_addrs.insert("66.70.218.230:34567");
              full_addrs.insert("34.209.48.213:34567");
              full_addrs.insert("159.65.91.59:34567");
              full_addrs.insert("138.197.31.246:34567");
-
     }
+    
     return full_addrs;
   }
 
