@@ -6,6 +6,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 ## Resources
 
 - Web: [wownero.org](http://wownero.org)
+- Wownero Funding System: [funding.wownero.com](https://funding.wownero.com)
+- Blockchain Explorer: [explore.wownero.com](https://explore.wownero.com)
+- Bitcointalk ANN: [bitcointalk.org/index.php?topic=3088712.0](https://bitcointalk.org/index.php?topic=3088712.0)
 - Twitter: [@w0wn3r0](https://twitter.com/w0wn3r0)
 - Discord: [discord.gg/sQt74ep](https://discord.gg/sQt74ep)
 - Reddit: [/r/wownero](https://www.reddit.com/r/wownero)
@@ -61,11 +64,11 @@ As with many development projects, the repository on Github is considered to be 
 
 Wownero is a 100% community-sponsored endeavor. If you want to join our efforts, the easiest thing you can do is support the project financially.
 
-The Wownero donation address (mostly reserved for hookers and blow) is: `Wo3MWeKwtA918DU4c69hVSNgejdWFCRCuWjShRY66mJkU2Hv58eygJWDJS1MNa2Ge5M1WjUkGHuLqHkweDxwZZU42d16v94mP`
+The Wownero Project donation address (mostly reserved for hookers and blow) is: `Wo3MWeKwtA918DU4c69hVSNgejdWFCRCuWjShRY66mJkU2Hv58eygJWDJS1MNa2Ge5M1WjUkGHuLqHkweDxwZZU42d16v94mP` (viewkey: `e62e40bfd5ca7e3a7f199602a3c97df511780489e1c1861884b00c28abaea406`)
 
-The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
+The Monero Project donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
-The Monero Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
+The Monero Project Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
@@ -88,7 +91,8 @@ Dates are provided in the format YYYY-MM-DD.
 | Software upgrade block height | Date       | Fork version | Minimum Wownero version | Recommended Wownero version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1                              | 2018-04-01 | v7                | v0.1.0.0               | v0.1.0.0                  | Cryptonight variant 1, ringsize >= 8, sorted inputs
-| 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
+| 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.1.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
+| XXXX                           | 2018-10-XX | v9                | v0.3.0.0               | v0.3.0.0                  | LWMA v2, static ringsize = X, XXXX
 
 X's indicate that these details have not been determined as of commit date.
 
