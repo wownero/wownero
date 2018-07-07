@@ -938,6 +938,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     }
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
     m_subaddress_labels[index.major].resize(index.minor + 1);
+    get_account_tags();
   }
   else if (m_subaddress_labels[index.major].size() <= index.minor)
   {
@@ -1308,20 +1309,20 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
           }
         }
-	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
+	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx_scan_info[o].amount)
         {
 	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
+              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
               << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
-              << print_money(m_transfers[kit->second].amount()) << ", received output ignored");
+              << print_money(m_transfers[kit->second].amount()) << " in tx " << m_transfers[kit->second].m_txid << ", received output ignored");
         }
         else
         {
 	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
+              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
               << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
           // The new larger output replaced a previous smaller one
-          tx_money_got_in_outs[tx_scan_info[o].received->index] -= tx.vout[o].amount;
+          tx_money_got_in_outs[tx_scan_info[o].received->index] -= tx_scan_info[o].amount;
 
           if (!pool)
           {
@@ -3257,6 +3258,12 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  if (m_subaddress_lookahead_major == SUBADDRESS_LOOKAHEAD_MAJOR && m_subaddress_lookahead_minor == SUBADDRESS_LOOKAHEAD_MINOR)
+  {
+    // the default lookahead setting (50:200) is clearly too much for hardware wallet
+    m_subaddress_lookahead_major = 5;
+    m_subaddress_lookahead_minor = 20;
+  }
   add_subaddress_account(tr("Primary account"));
   if (!wallet_.empty()) {
     store();
@@ -3769,7 +3776,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     wallet2::cache_file_data cache_file_data;
     std::string buf;
-    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf);
+    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf, std::numeric_limits<size_t>::max());
     THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
 
     // try to read it as an encrypted cache
@@ -8238,6 +8245,16 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
 
   return create_transactions_from(m_account_public_address, false, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>(), trusted_daemon);
 }
+//----------------------------------------------------------------------------------------------------
+void wallet2::discard_unmixable_outputs(bool trusted_daemon)
+{
+  // may throw
+  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
+  for (size_t idx : unmixable_outputs)
+  {
+    m_transfers[idx].m_spent = true;
+  }
+}
 
 bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const
 {
@@ -9516,7 +9533,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   std::unordered_set<crypto::hash> spent_txids;   // For each spent key image, search for a tx in m_transfers that uses it as input.
   std::vector<size_t> swept_transfers;            // If such a spending tx wasn't found in m_transfers, this means the spending tx 
                                                   // was created by sweep_all, so we can't know the spent height and other detailed info.
-  for(size_t i = 0; i < m_transfers.size(); ++i)
+  for(size_t i = 0; i < signed_key_images.size(); ++i)
   {
     transfer_details &td = m_transfers[i];
     uint64_t amount = td.amount();
