@@ -720,6 +720,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
 
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
   req.decode_as_json = false;
+  req.prune = false;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/gettransactions", fail_message.c_str()))
@@ -1144,10 +1145,10 @@ bool t_rpc_command_executor::print_status()
   bool daemon_is_alive = m_rpc_client->check_connection();
 
   if(daemon_is_alive) {
-    tools::success_msg_writer() << "monerod is running";
+    tools::success_msg_writer() << "wownerod is running";
   }
   else {
-    tools::fail_msg_writer() << "monerod is NOT running";
+    tools::fail_msg_writer() << "wownerod is NOT running";
   }
 
   return true;
@@ -1176,8 +1177,8 @@ bool t_rpc_command_executor::get_limit()
     }
   }
 
-  tools::msg_writer() << "limit-down is " << res.limit_down/1024 << " kB/s";
-  tools::msg_writer() << "limit-up is " << res.limit_up/1024 << " kB/s";
+  tools::msg_writer() << "limit-down is " << res.limit_down << " kB/s";
+  tools::msg_writer() << "limit-up is " << res.limit_up << " kB/s";
   return true;
 }
 
@@ -1207,8 +1208,8 @@ bool t_rpc_command_executor::set_limit(int64_t limit_down, int64_t limit_up)
     }
   }
 
-  tools::msg_writer() << "Set limit-down to " << res.limit_down/1024 << " kB/s";
-  tools::msg_writer() << "Set limit-up to " << res.limit_up/1024 << " kB/s";
+  tools::msg_writer() << "Set limit-down to " << res.limit_down << " kB/s";
+  tools::msg_writer() << "Set limit-up to " << res.limit_up << " kB/s";
   return true;
 }
 
@@ -1235,7 +1236,7 @@ bool t_rpc_command_executor::get_limit_up()
     }
   }
 
-  tools::msg_writer() << "limit-up is " << res.limit_up/1024 << " kB/s";
+  tools::msg_writer() << "limit-up is " << res.limit_up << " kB/s";
   return true;
 }
 
@@ -1262,7 +1263,7 @@ bool t_rpc_command_executor::get_limit_down()
     }
   }
 
-  tools::msg_writer() << "limit-down is " << res.limit_down/1024 << " kB/s";
+  tools::msg_writer() << "limit-down is " << res.limit_down << " kB/s";
   return true;
 }
 

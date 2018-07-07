@@ -49,16 +49,9 @@
 #include "storages/levin_abstract_invoke2.h"
 #include "cryptonote_core/cryptonote_core.h"
 
-// We have to look for miniupnpc headers in different places, dependent on if its compiled or external
-#ifdef UPNP_STATIC
-  #include <miniupnpc/miniupnpc.h>
-  #include <miniupnpc/upnpcommands.h>
-  #include <miniupnpc/upnperrors.h>
-#else
-  #include "miniupnpc.h"
-  #include "upnpcommands.h"
-  #include "upnperrors.h"
-#endif
+#include <miniupnp/miniupnpc/miniupnpc.h>
+#include <miniupnp/miniupnpc/upnpcommands.h>
+#include <miniupnp/miniupnpc/upnperrors.h>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
@@ -377,17 +370,23 @@ namespace nodetool
   {
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET) {
-             full_addrs.insert("167.160.87.144:11180");
-             full_addrs.insert("5.255.86.129:11180");
-    } else {
+             full_addrs.insert("206.189.166.14:11180");
+             full_addrs.insert("104.236.48.55:11180");
+    }
+    else if (nettype == cryptonote::STAGENET)
+    {
+            full_addrs.insert("206.189.166.14:38080");
+            full_addrs.insert("104.236.48.55:38080");
+    }
+    else
+    {
              full_addrs.insert("66.70.218.230:34567");
              full_addrs.insert("34.209.48.213:34567");
              full_addrs.insert("159.65.91.59:34567");
              full_addrs.insert("138.197.31.246:34567");
-
     }
+    
     return full_addrs;
-
   }
 
   //-----------------------------------------------------------------------------------
@@ -1287,6 +1286,20 @@ namespace nodetool
     m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
+    m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::check_incoming_connections()
+  {
+    if (m_offline || m_hide_my_port)
+      return true;
+    if (get_incoming_connections_count() == 0)
+    {
+      const el::Level level = el::Level::Warning;
+      MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -2054,4 +2067,3 @@ namespace nodetool
     }
   }
 }
-

@@ -271,7 +271,7 @@ namespace cryptonote
       const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
       if (version >= 6 && version != hshd.top_version)
       {
-        if (version < hshd.top_version)
+        if (version < hshd.top_version && version == m_core.get_ideal_hard_fork_version())
           MCLOG_RED(el::Level::Warning, "global", context << " peer claims higher version that we think (" <<
               (unsigned)hshd.top_version << " for " << (hshd.current_height - 1) << " instead of " << (unsigned)version <<
               ") - we may be forked from the network and a software upgrade may be needed");
@@ -308,7 +308,8 @@ namespace cryptonote
       << " [Your node is " << abs_diff << " blocks (" << ((abs_diff - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");
-      m_core.safesyncmode(false);
+      if (hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
+        m_core.safesyncmode(false);
     }
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
     context.m_state = cryptonote_connection_context::state_synchronizing;
@@ -1578,7 +1579,9 @@ skip:
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << "You are now synchronized with the network. You may now start wownero-wallet-cli." << ENDL
         << ENDL
-        << "Use the \"help\" command to see the list of available commands." << ENDL
+        << "Use the \"help\" command to see a simplified list of available commands." << ENDL
+        << "Use the \"help_advanced\" command to see an advanced list of available commands." << ENDL        
+        << "Use \"help_advanced <command>\" to see a command's documentation." << ENDL
         << "**********************************************************************");
       m_core.on_synchronized();
     }
@@ -1629,10 +1632,10 @@ skip:
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids);
-    if (n_use_blocks == 0)
+    if (n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("Peer yielded no usable blocks, dropping connection");
-      drop_connection(context, false, false);
+      LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
+      drop_connection(context, true, false);
       return 1;
     }
 

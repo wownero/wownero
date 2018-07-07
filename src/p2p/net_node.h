@@ -127,10 +127,7 @@ namespace nodetool
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
   private:
     const std::vector<std::string> m_seed_nodes_list =
-    { "seeds.moneroseeds.se"
-    , "seeds.moneroseeds.ae.org"
-    , "seeds.moneroseeds.ch"
-    , "seeds.moneroseeds.li"
+    { 
     };
 
     bool islimitup=false;
@@ -244,6 +241,7 @@ namespace nodetool
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
+    bool check_incoming_connections();
 
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
@@ -307,6 +305,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
+    epee::math_helper::once_a_time_seconds<900, false> m_incoming_connections_interval;
 
     std::string m_bind_ip;
     std::string m_port;
@@ -334,8 +333,8 @@ namespace nodetool
     cryptonote::network_type m_nettype;
   };
 
-    const int64_t default_limit_up = 2048;
-    const int64_t default_limit_down = 8192;
+    const int64_t default_limit_up = 2048;    // kB/s
+    const int64_t default_limit_down = 8192;  // kB/s
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;

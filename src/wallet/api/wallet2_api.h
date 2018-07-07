@@ -556,7 +556,8 @@ struct Wallet
     }
     static uint64_t maximumAllowedAmount();
     // Easylogger wrapper
-    static void init(const char *argv0, const char *default_log_base_name);
+    static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
+    static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
     static void debug(const std::string &category, const std::string &str);
     static void info(const std::string &category, const std::string &str);
     static void warning(const std::string &category, const std::string &str);
@@ -956,25 +957,25 @@ struct WalletManager
     virtual void setDaemonAddress(const std::string &address) = 0;
 
     //! returns whether the daemon can be reached, and its version number
-    virtual bool connected(uint32_t *version = NULL) const = 0;
+    virtual bool connected(uint32_t *version = NULL) = 0;
 
     //! returns current blockchain height
-    virtual uint64_t blockchainHeight() const = 0;
+    virtual uint64_t blockchainHeight() = 0;
 
     //! returns current blockchain target height
-    virtual uint64_t blockchainTargetHeight() const = 0;
+    virtual uint64_t blockchainTargetHeight() = 0;
 
     //! returns current network difficulty
-    virtual uint64_t networkDifficulty() const = 0;
+    virtual uint64_t networkDifficulty() = 0;
 
     //! returns current mining hash rate (0 if not mining)
-    virtual double miningHashRate() const = 0;
+    virtual double miningHashRate() = 0;
 
     //! returns current block target
-    virtual uint64_t blockTarget() const = 0;
+    virtual uint64_t blockTarget() = 0;
 
     //! returns true iff mining
-    virtual bool isMining() const = 0;
+    virtual bool isMining() = 0;
 
     //! starts mining with the set number of threads
     virtual bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) = 0;

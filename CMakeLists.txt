@@ -153,6 +153,15 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+# Update and init submodules by default
+if(NOT MANUAL_SUBMODULES)
+  find_package(Git)
+  if(GIT_FOUND)
+    message(STATUS "Initializing submodules")
+    execute_process(COMMAND git "submodule" "update" "--init" "--recursive" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+endif()
+
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
@@ -236,7 +245,7 @@ endif()
 # elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
 #   set(BSDI TRUE)
 
-include_directories(external/easylogging++ src contrib/epee/include external)
+include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external)
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
@@ -430,14 +439,6 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 add_subdirectory(external)
 
-# Final setup for miniupnpc
-if(UPNP_STATIC OR IOS)
-  add_definitions("-DUPNP_STATIC")
-else()
-  add_definitions("-DUPNP_DYNAMIC")
-  include_directories(${UPNP_INCLUDE})
-endif()
-
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})
 link_directories(${UNBOUND_LIBRARY_DIRS})
@@ -460,9 +461,12 @@ link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for libpcsc
 if (PCSC_FOUND) 
+  message(STATUS "Using PCSC include dir at ${PCSC_INCLUDE_DIR}")
   add_definitions(-DHAVE_PCSC)
   include_directories(${PCSC_INCLUDE_DIR})
   link_directories(${LIBPCSC_LIBRARY_DIRS})
+else (PCSC_FOUND)
+  message(STATUS "Could not find PCSC")
 endif()
 
 if(MSVC)

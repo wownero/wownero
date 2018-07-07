@@ -163,10 +163,9 @@ namespace cryptonote
   {
     if (nettype == TESTNET)
     {
-      ADD_CHECKPOINT(1,     "4acea72fb2e9cb1a697930ebebf67d63c62c4dc711cc0764ba31f9437f908564");
-      ADD_CHECKPOINT(10,    "91f126cd60861f1801eeedbe6068ac997f09644bc7a3527fbc7457aa254ef399");
-      ADD_CHECKPOINT(100,   "6b9d737d08707f3361d095a31f78bbb9f828088c92699b0326cde4ea59cd82ac");
-      ADD_CHECKPOINT(1000,  "c9bed1b23c3c5a5c7cfac3cff786173b65e2cea8005d8ef686b56708281c60cf");
+      ADD_CHECKPOINT(1,     "0e7e25ec4d39a98888e5b7dda643d79eb321802de4bd03686a2936b7a455a7e3");
+      ADD_CHECKPOINT(10,    "37d2c2d9e19f2334135e2ef41184c55f5e5d1c8789a4efcc25bec775a15d783f"); //Hard fork to v8
+      ADD_CHECKPOINT(20,    "6550adca5c4f3194609c4cd719a98fbd70c32c925ac011fd3f5d678c0961f431"); //Hard fork to v9
       return true;
     }
     if (nettype == STAGENET)
@@ -287,6 +286,3 @@ bool checkpoints::load_checkpoints_from_json(const std::string &json_hashfile_fu
     return result;
   }
 }
-
-
-

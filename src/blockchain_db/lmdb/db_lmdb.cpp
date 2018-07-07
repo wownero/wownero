@@ -1346,6 +1346,7 @@ void BlockchainLMDB::sync()
 
 void BlockchainLMDB::safesyncmode(const bool onoff)
 {
+  MINFO("switching safe mode " << (onoff ? "on" : "off"));
   mdb_env_set_flags(m_env, MDB_NOSYNC|MDB_MAPASYNC, !onoff);
 }
 
@@ -3086,7 +3087,7 @@ void BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, const std::
   LOG_PRINT_L3("db3: " << db3);
 }
 
-std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const
+std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff, uint64_t min_count) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3112,7 +3113,8 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
       mdb_size_t num_elems = 0;
       mdb_cursor_count(m_cur_output_amounts, &num_elems);
       uint64_t amount = *(const uint64_t*)k.mv_data;
-      histogram[amount] = std::make_tuple(num_elems, 0, 0);
+      if (num_elems >= min_count)
+        histogram[amount] = std::make_tuple(num_elems, 0, 0);
     }
   }
   else
@@ -3123,13 +3125,15 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
       int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_SET);
       if (ret == MDB_NOTFOUND)
       {
-        histogram[amount] = std::make_tuple(0, 0, 0);
+        if (0 >= min_count)
+          histogram[amount] = std::make_tuple(0, 0, 0);
       }
       else if (ret == MDB_SUCCESS)
       {
         mdb_size_t num_elems = 0;
         mdb_cursor_count(m_cur_output_amounts, &num_elems);
-        histogram[amount] = std::make_tuple(num_elems, 0, 0);
+        if (num_elems >= min_count)
+          histogram[amount] = std::make_tuple(num_elems, 0, 0);
       }
       else
       {
@@ -3174,6 +3178,47 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
   TXN_POSTFIX_RDONLY();
 
   return histogram;
+}
+
+bool BlockchainLMDB::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(output_amounts);
+
+  distribution.clear();
+  const uint64_t db_height = height();
+  if (from_height >= db_height)
+    return false;
+  distribution.resize(db_height - from_height, 0);
+
+  bool fret = true;
+  MDB_val_set(k, amount);
+  MDB_val v;
+  MDB_cursor_op op = MDB_SET;
+  while (1)
+  {
+    int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, op);
+    op = MDB_NEXT_DUP;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR("Failed to enumerate outputs"));
+    const outkey *ok = (const outkey *)v.mv_data;
+    const uint64_t height = ok->data.height;
+    if (height >= from_height)
+      distribution[height - from_height]++;
+    else
+      base++;
+    if (to_height > 0 && height > to_height)
+      break;
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return true;
 }
 
 void BlockchainLMDB::check_hard_fork_info()
