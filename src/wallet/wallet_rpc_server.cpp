@@ -255,7 +255,7 @@ namespace tools
     entry.unlock_time = pd.m_unlock_time;
     entry.fee = pd.m_fee;
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
-    entry.type = "in";
+    entry.type = pd.m_coinbase ? "block" : "in";
     entry.subaddr_index = pd.m_subaddr_index;
     entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
   }
