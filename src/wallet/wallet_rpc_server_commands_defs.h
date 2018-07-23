@@ -141,6 +141,25 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_GET_ADDRESS_INDEX
+  {
+    struct request
+    {
+      std::string address;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      cryptonote::subaddress_index index;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_CREATE_ADDRESS
   {
     struct request
