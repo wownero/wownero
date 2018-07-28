@@ -964,6 +964,7 @@ namespace cryptonote
       std::string bootstrap_daemon_address;
       uint64_t height_without_bootstrap;
       bool was_bootstrap_ever_used;
+      uint64_t database_size;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -993,6 +994,7 @@ namespace cryptonote
         KV_SERIALIZE(bootstrap_daemon_address)
         KV_SERIALIZE(height_without_bootstrap)
         KV_SERIALIZE(was_bootstrap_ever_used)
+        KV_SERIALIZE(database_size)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -2075,12 +2077,16 @@ namespace cryptonote
       uint64_t height;
       uint64_t length;
       uint64_t difficulty;
+      std::vector<std::string> block_hashes;
+      std::string main_chain_parent_block;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_hash)
         KV_SERIALIZE(height)
         KV_SERIALIZE(length)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(block_hashes)
+        KV_SERIALIZE(main_chain_parent_block)
       END_KV_SERIALIZE_MAP()
     };
 

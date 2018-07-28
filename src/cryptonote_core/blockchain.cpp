@@ -3298,6 +3298,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   if(bl.prev_id != get_tail_id())
   {
     MERROR_VER("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    bvc.m_verifivation_failed = true;
 leave:
     m_db->block_txn_stop();
     return false;
@@ -3598,6 +3599,7 @@ leave:
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
       return false;
     }
@@ -3627,6 +3629,7 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  get_difficulty_for_next_block(); // just to cache it
 
   return true;
 }
@@ -4396,9 +4399,9 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_ou
   return m_db->get_output_histogram(amounts, unlocked, recent_cutoff, min_count);
 }
 
-std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_alternative_chains() const
+std::list<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>> Blockchain::get_alternative_chains() const
 {
-  std::list<std::pair<Blockchain::block_extended_info,uint64_t>> chains;
+  std::list<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>> chains;
 
   for (const auto &i: m_alternative_chains)
   {
@@ -4414,15 +4417,16 @@ std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_a
     }
     if (!found)
     {
-      uint64_t length = 1;
+      std::vector<crypto::hash> chain;
       auto h = i.second.bl.prev_id;
+      chain.push_back(top);
       blocks_ext_by_hash::const_iterator prev;
       while ((prev = m_alternative_chains.find(h)) != m_alternative_chains.end())
       {
+        chain.push_back(h);
         h = prev->second.bl.prev_id;
-        ++length;
       }
-      chains.push_back(std::make_pair(i.second, length));
+      chains.push_back(std::make_pair(i.second, chain));
     }
   }
   return chains;
