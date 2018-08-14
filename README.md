@@ -91,8 +91,8 @@ Dates are provided in the format YYYY-MM-DD.
 | Software upgrade block height | Date       | Fork version | Minimum Wownero version | Recommended Wownero version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1                              | 2018-04-01 | v7                | v0.1.0.0               | v0.1.0.0                  | Cryptonight variant 1, ringsize >= 8, sorted inputs
-| 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.1.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
-| XXXX                           | 2018-10-XX | v9                | v0.3.0.0               | v0.3.0.0                  | LWMA v2, static ringsize = X, XXXX
+| 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.2.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
+| XXXX                           | 2018-09-XX | v9                | v0.3.0.0               | v0.3.0.0                  | Cryptonight variant 2, LWMA v2, static ringsize = X, XXXX
 
 X's indicate that these details have not been determined as of commit date.
 
