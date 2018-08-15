@@ -525,6 +525,18 @@ bool parse_priority(const std::string& arg, uint32_t& priority)
   return false;
 }
 
+std::string join_priority_strings(const char *delimiter)
+{
+  std::string s;
+  for (size_t n = 0; n < allowed_priority_strings.size(); ++n)
+  {
+    if (!s.empty())
+      s += delimiter;
+    s += allowed_priority_strings[n];
+  }
+  return s;
+}
+
 std::string simple_wallet::get_commands_str()
 {
   std::stringstream ss;
@@ -1611,12 +1623,12 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
 
 bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  int priority = 0;
+  uint32_t priority = 0;
   try
   {
     if (strchr(args[1].c_str(), '-'))
     {
-      fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4 ");
+      fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
       return true;
     }
     if (args[1] == "0")
@@ -1625,11 +1637,23 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
     }
     else
     {
-      priority = boost::lexical_cast<int>(args[1]);
-      if (priority < 1 || priority > 4)
+      bool found = false;
+      for (size_t n = 0; n < allowed_priority_strings.size(); ++n)
       {
-        fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4");
-        return true;
+        if (allowed_priority_strings[n] == args[1])
+        {
+          found = true;
+          priority = n;
+        }
+      }
+      if (!found)
+      {
+        priority = boost::lexical_cast<int>(args[1]);
+        if (priority < 1 || priority > 4)
+        {
+          fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
+          return true;
+        }
       }
     }
  
@@ -1643,7 +1667,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
   }
   catch(const boost::bad_lexical_cast &)
   {
-    fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4");
+    fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
     return true;
   }
   catch(...)
@@ -2312,13 +2336,17 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     std::string seed_language = m_wallet->get_seed_language();
     if (m_use_english_language_names)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
+    std::string priority_string = "invalid";
+    uint32_t priority = m_wallet->get_default_priority();
+    if (priority < allowed_priority_strings.size())
+      priority_string = allowed_priority_strings[priority];
     success_msg_writer() << "seed = " << seed_language;
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
-    success_msg_writer() << "priority = " << m_wallet->get_default_priority();
+    success_msg_writer() << "priority = " << priority<< " (" << priority_string << ")";
     success_msg_writer() << "confirm-missing-payment-id = " << m_wallet->confirm_missing_payment_id();
     success_msg_writer() << "ask-password = " << m_wallet->ask_password();
     success_msg_writer() << "unit = " << cryptonote::get_unit(cryptonote::get_default_decimal_point());
@@ -2372,7 +2400,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
-    CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
+    CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4, or one of ") << join_priority_strings(", "));
     CHECK_SIMPLE_VARIABLE("confirm-missing-payment-id", set_confirm_missing_payment_id, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("ask-password", set_ask_password, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("unit", set_unit, tr("wownero, millinero, micronero, nanonero, piconero"));
