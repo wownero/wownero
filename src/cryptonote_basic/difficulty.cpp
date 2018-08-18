@@ -250,26 +250,29 @@ difficulty_type next_difficulty_v3(std::vector<std::uint64_t> timestamps, std::v
  
     int64_t  T = DIFFICULTY_TARGET_V2;
     int64_t  N = DIFFICULTY_WINDOW_V2;
-    int64_t  FTL = CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V3;
     int64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
+    
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
 
     // TODO: change initial_difficulty_guess before v9 mainnet hard fork 
     // if ( height >= fork_height && height <= fork_height+N )  { return difficulty_guess; }
-    uint64_t initial_difficulty_guess = 100;
-    if (timestamps.size() <= 6 ) {   return initial_difficulty_guess;   }
-    else if ( timestamps.size() < static_cast<uint64_t>(N +1) ) { N=timestamps.size()-1;  }
+    uint64_t difficulty_guess = 100; 
+    if (timestamps.size() <= 10 ) {   return difficulty_guess;   }
+    if ( timestamps.size() < static_cast<uint64_t>(N +1) ) { N = timestamps.size()-1;  }
 
-    for ( int64_t i = 1; i <= N; i++) {
-      ST = std::max(-FTL, std::min( (int64_t)(timestamps[i]) - (int64_t)(timestamps[i-1]), 6*T));
-      L +=  ST * i ;
-      if ( i > N-3 ) { sum_3_ST += ST; }
+    for ( int64_t i = 1; i <= N; i++) {  
+      ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
+      ST = std::max(-4*T, std::min(ST, 6*T));
+      L +=  ST * i ; 
+      if ( i > N-3 ) { sum_3_ST += ST; } 
     }
 
-    next_D = ((int64_t)(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+    next_D = (static_cast<int64_t>(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
 
     prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
-    next_D = std::max((prev_D*67)/100, std::min( next_D, (prev_D*150)/100));
-    if ( sum_3_ST < (8*T)/10) {  next_D = (prev_D*110)/100; }
+    next_D = std::max((prev_D*67)/100, std::min(next_D, (prev_D*150)/100));
+
+    if ( sum_3_ST < (8*T)/10) {  next_D = std::max(next_D,(prev_D*108)/100); }
 
     return static_cast<uint64_t>(next_D);
   }
