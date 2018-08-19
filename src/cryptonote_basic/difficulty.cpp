@@ -243,10 +243,10 @@ namespace cryptonote {
 
 // LWMA-2 difficulty algorithm
 // Copyright (c) 2017-2018 Zawy, MIT License
-// See commented version in https://github.com/zawy12/difficulty-algorithms/issues/3 
-// for required config file changes.
+// https://github.com/zawy12/difficulty-algorithms/issues/3
+// See commented version for required config file changes.
 
-difficulty_type next_difficulty_v3(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
+difficulty_type next_difficulty_v3(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
  
     int64_t  T = DIFFICULTY_TARGET_V2;
     int64_t  N = DIFFICULTY_WINDOW_V2;

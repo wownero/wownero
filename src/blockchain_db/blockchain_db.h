@@ -148,6 +148,7 @@ struct txpool_tx_meta_t
   uint8_t relayed;
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
+  uint8_t bf_padding: 7;
 
   uint8_t padding[76]; // till 192 bytes
 };
@@ -1504,6 +1505,13 @@ public:
    * @return true if in read-only mode, otherwise false
    */
   virtual bool is_read_only() const = 0;
+
+  /**
+   * @brief get disk space requirements
+   *
+   * @return the size required
+   */
+  virtual uint64_t get_database_size() const = 0;
 
   // TODO: this should perhaps be (or call) a series of functions which
   // progressively update through version updates
