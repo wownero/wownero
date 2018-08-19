@@ -157,7 +157,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=false);
+  BlockchainLMDB(bool batch_transactions=true);
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -363,6 +363,8 @@ private:
   void check_open() const;
 
   virtual bool is_read_only() const;
+
+  virtual uint64_t get_database_size() const;
 
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();

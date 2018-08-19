@@ -35,6 +35,7 @@
 #include <random>
 
 #include "string_tools.h"
+#include "file_io_utils.h"
 #include "common/util.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
@@ -1335,6 +1336,9 @@ void BlockchainLMDB::sync()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
+
+  if (is_read_only())
+    return;
 
   // Does nothing unless LMDB environment was opened with MDB_NOSYNC or in part
   // MDB_NOMETASYNC. Force flush to be synchronous.
@@ -3291,6 +3295,16 @@ bool BlockchainLMDB::is_read_only() const
     return true;
 
   return false;
+}
+
+uint64_t BlockchainLMDB::get_database_size() const
+{
+  uint64_t size = 0;
+  boost::filesystem::path datafile(m_folder);
+  datafile /= CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
+  if (!epee::file_io_utils::get_file_size(datafile.string(), size))
+    size = 0;
+  return size;
 }
 
 void BlockchainLMDB::fixup()
