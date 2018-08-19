@@ -143,8 +143,6 @@ public:
     virtual Subaddress * subaddress();
     virtual SubaddressAccount * subaddressAccount();
     virtual void setListener(WalletListener * l);
-    virtual uint32_t defaultMixin() const;
-    virtual void setDefaultMixin(uint32_t arg);
     virtual bool setUserNote(const std::string &txid, const std::string &note);
     virtual std::string getUserNote(const std::string &txid) const;
     virtual std::string getTxKey(const std::string &txid) const;

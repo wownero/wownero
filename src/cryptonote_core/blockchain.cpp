@@ -409,7 +409,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   m_db->block_txn_stop();
 
   uint64_t num_popped_blocks = 0;
-  while (true)
+  while (!m_db->is_read_only())
   {
     const uint64_t top_height = m_db->height() - 1;
     const crypto::hash top_id = m_db->top_block_hash();
@@ -1942,14 +1942,21 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
 
   res.outs.clear();
   res.outs.reserve(req.outputs.size());
-  for (const auto &i: req.outputs)
+  try
   {
-    // get tx_hash, tx_out_index from DB
-    const output_data_t od = m_db->get_output_key(i.amount, i.index);
-    tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
-    bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
+    for (const auto &i: req.outputs)
+    {
+      // get tx_hash, tx_out_index from DB
+      const output_data_t od = m_db->get_output_key(i.amount, i.index);
+      tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
+      bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 
-    res.outs.push_back({od.pubkey, od.commitment, unlocked, od.height, toi.first});
+      res.outs.push_back({od.pubkey, od.commitment, unlocked, od.height, toi.first});
+    }
+  }
+  catch (const std::exception &e)
+  {
+    return false;
   }
   return true;
 }
@@ -3291,6 +3298,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   if(bl.prev_id != get_tail_id())
   {
     MERROR_VER("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    bvc.m_verifivation_failed = true;
 leave:
     m_db->block_txn_stop();
     return false;
@@ -3591,6 +3599,7 @@ leave:
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
       return false;
     }
@@ -3620,6 +3629,7 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  get_difficulty_for_next_block(); // just to cache it
 
   return true;
 }
@@ -4389,9 +4399,9 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_ou
   return m_db->get_output_histogram(amounts, unlocked, recent_cutoff, min_count);
 }
 
-std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_alternative_chains() const
+std::list<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>> Blockchain::get_alternative_chains() const
 {
-  std::list<std::pair<Blockchain::block_extended_info,uint64_t>> chains;
+  std::list<std::pair<Blockchain::block_extended_info,std::vector<crypto::hash>>> chains;
 
   for (const auto &i: m_alternative_chains)
   {
@@ -4407,15 +4417,16 @@ std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_a
     }
     if (!found)
     {
-      uint64_t length = 1;
+      std::vector<crypto::hash> chain;
       auto h = i.second.bl.prev_id;
+      chain.push_back(top);
       blocks_ext_by_hash::const_iterator prev;
       while ((prev = m_alternative_chains.find(h)) != m_alternative_chains.end())
       {
+        chain.push_back(h);
         h = prev->second.bl.prev_id;
-        ++length;
       }
-      chains.push_back(std::make_pair(i.second, length));
+      chains.push_back(std::make_pair(i.second, chain));
     }
   }
   return chains;
@@ -4427,7 +4438,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "b81e87c72cf3d1c0567077bb0eac6152a4bba8eeb2b4a7e1b69d1e866d341a3e";
+static const char expected_block_hashes_hash[] = "1ed4338c8e3f8eb877caae719bda776252b3a731be1613e0c4130fc67ea5280a";
 void Blockchain::load_compiled_in_block_hashes()
 {
   const bool testnet = m_nettype == TESTNET;
