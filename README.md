@@ -44,7 +44,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Introduction
 
-Wownero is a fork of the private cryptocurrenty Monero with two major changes: A capped emmision that disallows infinite coin creation 10x the coin for 10x the W0W; Wownero is a fairly launched coin with no premine. It's not a fork of another blockchain. With its own genesis block there is no degradation of privacy due to ring signatures using different participants for the same tx outputs on opposing forks.
+Wownero is a fork of the private cryptocurrency Monero with two major changes: A capped emission that disallows infinite coin creation 10x the coin for 10x the W0W; Wownero is a fairly launched coin with no premine. It's not a fork of another blockchain. With its own genesis block there is no degradation of privacy due to ring signatures using different participants for the same tx outputs on opposing forks.
 
 **Privacy:** Wownero uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
 
