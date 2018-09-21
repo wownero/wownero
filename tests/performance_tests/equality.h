@@ -28,53 +28,45 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "gtest/gtest.h"
+#pragma once
 
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/program_options.hpp>
+#include <string.h>
+#include <sodium/crypto_verify_32.h>
 
-#include "p2p/net_node.h"
-#include "p2p/net_node.inl"
-#include "cryptonote_protocol/cryptonote_protocol_handler.h"
-#include "cryptonote_protocol/cryptonote_protocol_handler.inl"
-#include "include_base_utils.h"
-#include "string_tools.h"
-#include "common/command_line.h"
-#include "common/util.h"
-#include "unit_tests_utils.h"
-
-namespace po = boost::program_options;
-
-boost::filesystem::path unit_test::data_dir;
-
-namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>; }
-namespace cryptonote { template class t_cryptonote_protocol_handler<cryptonote::core>; }
-
-int main(int argc, char** argv)
+struct memcmp32
 {
-  tools::on_startup();
-  epee::string_tools::set_module_name_and_folder(argv[0]);
-  mlog_configure(mlog_get_default_log_path("unit_tests.log"), true);
-  epee::debug::get_set_enable_assert(true, false);
+  static const size_t loop_count = 1000000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return memcmp(k0, k1, 32); }
+};
 
-  ::testing::InitGoogleTest(&argc, argv);
+struct verify32
+{
+  static const size_t loop_count = 10000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return crypto_verify_32(k0, k1); }
+};
 
-  po::options_description desc_options("Command line options");
-  const command_line::arg_descriptor<std::string> arg_data_dir = { "data-dir", "Data files directory", DEFAULT_DATA_DIR };
-  command_line::add_arg(desc_options, arg_data_dir);
+template<typename f, bool equal>
+class test_equality
+{
+public:
+  static const size_t loop_count = f::loop_count;
 
-  po::variables_map vm;
-  bool r = command_line::handle_error_helper(desc_options, [&]()
+  bool init()
   {
-    po::store(po::parse_command_line(argc, argv, desc_options), vm);
-    po::notify(vm);
+    for (int n = 0; n < 32; ++n)
+      k0[n] = n;
+    for (int n = 0; n < 32; ++n)
+      k1[n] = equal ? n : n + 1;
     return true;
-  });
-  if (! r)
-    return 1;
+  }
 
-  unit_test::data_dir = command_line::get_arg(vm, arg_data_dir);
+  bool test()
+  {
+    return equal == !f::call(k0, k1);
+  }
 
-  return RUN_ALL_TESTS();
-}
+private:
+  unsigned char k0[32];
+  unsigned char k1[32];
+};
+

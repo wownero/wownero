@@ -124,6 +124,40 @@ namespace cryptonote
     return h;
   }
   //---------------------------------------------------------------
+  bool expand_transaction_1(transaction &tx, bool base_only)
+  {
+    if (tx.version >= 2 && !is_coinbase(tx))
+    {
+      rct::rctSig &rv = tx.rct_signatures;
+      if (rv.outPk.size() != tx.vout.size())
+      {
+        LOG_PRINT_L1("Failed to parse transaction from blob, bad outPk size in tx " << get_transaction_hash(tx));
+        return false;
+      }
+      for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
+        rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
+
+      if (!base_only)
+      {
+        const bool bulletproof = rv.type == rct::RCTTypeFullBulletproof || rv.type == rct::RCTTypeSimpleBulletproof;
+        if (bulletproof)
+        {
+          if (rv.p.bulletproofs.size() != tx.vout.size())
+          {
+            LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs size in tx " << get_transaction_hash(tx));
+            return false;
+          }
+          for (size_t n = 0; n < rv.outPk.size(); ++n)
+          {
+            rv.p.bulletproofs[n].V.resize(1);
+            rv.p.bulletproofs[n].V[0] = rv.outPk[n].mask;
+          }
+        }
+      }
+    }
+    return true;
+  }
+  //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx)
   {
     std::stringstream ss;
@@ -131,6 +165,7 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     return true;
   }
@@ -142,6 +177,7 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, true), false, "Failed to expand transaction data");
     return true;
   }
   //---------------------------------------------------------------
@@ -152,6 +188,7 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     //TODO: validate tx
 
@@ -671,7 +708,7 @@ namespace cryptonote
   {
     switch (decimal_point)
     {
-      case 12:
+      case 11:
       case 9:
       case 6:
       case 3:
@@ -694,8 +731,8 @@ namespace cryptonote
       decimal_point = default_decimal_point;
     switch (std::atomic_load(&default_decimal_point))
     {
-      case 12:
-        return "monero";
+      case 11:
+        return "wownero";
       case 9:
         return "millinero";
       case 6:
@@ -852,7 +889,7 @@ namespace cryptonote
     const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
     crypto::hash block_blob_hash = get_blob_hash(block_to_blob(b));
 
-    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
+    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612 && strcmp(CRYPTONOTE_NAME, "monero")==0)
     {
       string_tools::hex_to_pod(existing_block_id_202612, res);
       return true;
@@ -862,7 +899,7 @@ namespace cryptonote
     if (hash_result)
     {
       // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
-      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
+      if (string_tools::pod_to_hex(res) == existing_block_id_202612 && strcmp(CRYPTONOTE_NAME, "monero")==0)
       {
         LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
         res = null_hash;
@@ -909,7 +946,7 @@ namespace cryptonote
       return true;
     }
     blobdata bd = get_block_hashing_blob(b);
-    const int cn_variant = b.major_version >= 7 ? b.major_version - 6 : 0;
+    const int cn_variant = b.major_version >= 9 ? 2 : 1;
     crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
     return true;
   }

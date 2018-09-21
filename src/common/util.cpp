@@ -43,6 +43,7 @@ using namespace epee;
 
 #include "crypto/crypto.h"
 #include "util.h"
+#include "stack_trace.h"
 #include "memwipe.h"
 #include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
@@ -439,10 +440,15 @@ std::string get_nix_version_display_string()
 
     if (SHGetSpecialFolderPathW(NULL, psz_path, nfolder, iscreate))
     {
-      int size_needed = WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), NULL, 0, NULL, NULL);
-      std::string folder_name(size_needed, 0);
-      WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), &folder_name[0], size_needed, NULL, NULL);
-      return folder_name;
+      try
+      {
+        return string_tools::utf16_to_utf8(psz_path);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("utf16_to_utf8 failed: " << e.what());
+        return "";
+      }
     }
 
     LOG_ERROR("SHGetSpecialFolderPathW() failed, could not obtain requested path.");
@@ -503,18 +509,20 @@ std::string get_nix_version_display_string()
     int code;
 #if defined(WIN32)
     // Maximizing chances for success
-    WCHAR wide_replacement_name[1000];
-    MultiByteToWideChar(CP_UTF8, 0, replacement_name.c_str(), replacement_name.size() + 1, wide_replacement_name, 1000);
-    WCHAR wide_replaced_name[1000];
-    MultiByteToWideChar(CP_UTF8, 0, replaced_name.c_str(), replaced_name.size() + 1, wide_replaced_name, 1000);
+    std::wstring wide_replacement_name;
+    try { wide_replacement_name = string_tools::utf8_to_utf16(replacement_name); }
+    catch (...) { return std::error_code(GetLastError(), std::system_category()); }
+    std::wstring wide_replaced_name;
+    try { wide_replaced_name = string_tools::utf8_to_utf16(replaced_name); }
+    catch (...) { return std::error_code(GetLastError(), std::system_category()); }
 
-    DWORD attributes = ::GetFileAttributesW(wide_replaced_name);
+    DWORD attributes = ::GetFileAttributesW(wide_replaced_name.c_str());
     if (INVALID_FILE_ATTRIBUTES != attributes)
     {
-      ::SetFileAttributesW(wide_replaced_name, attributes & (~FILE_ATTRIBUTE_READONLY));
+      ::SetFileAttributesW(wide_replaced_name.c_str(), attributes & (~FILE_ATTRIBUTE_READONLY));
     }
 
-    bool ok = 0 != ::MoveFileExW(wide_replacement_name, wide_replaced_name, MOVEFILE_REPLACE_EXISTING);
+    bool ok = 0 != ::MoveFileExW(wide_replacement_name.c_str(), wide_replaced_name.c_str(), MOVEFILE_REPLACE_EXISTING);
     code = ok ? 0 : static_cast<int>(::GetLastError());
 #else
     bool ok = 0 == std::rename(replacement_name.c_str(), replaced_name.c_str());
@@ -527,7 +535,10 @@ std::string get_nix_version_display_string()
   {
     ub_ctx *ctx = ub_ctx_create();
     if (!ctx) return false; // cheat a bit, should not happen unless OOM
-    ub_ctx_zone_add(ctx, "monero", "unbound"); // this calls ub_ctx_finalize first, then errors out with UB_SYNTAX
+    char *monero = strdup("monero"), *unbound = strdup("unbound");
+    ub_ctx_zone_add(ctx, monero, unbound); // this calls ub_ctx_finalize first, then errors out with UB_SYNTAX
+    free(unbound);
+    free(monero);
     // if no threads, bails out early with UB_NOERROR, otherwise fails with UB_AFTERFINAL id already finalized
     bool with_threads = ub_ctx_async(ctx, 1) != 0; // UB_AFTERFINAL is not defined in public headers, check any error
     ub_ctx_delete(ctx);
@@ -557,9 +568,47 @@ std::string get_nix_version_display_string()
     }
     return false;
   }
+
+#ifdef STACK_TRACE
+#ifdef _WIN32
+  // https://stackoverflow.com/questions/1992816/how-to-handle-seg-faults-under-windows
+  static LONG WINAPI windows_crash_handler(PEXCEPTION_POINTERS pExceptionInfo)
+  {
+    tools::log_stack_trace("crashing");
+    exit(1);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+  static void setup_crash_dump()
+  {
+    SetUnhandledExceptionFilter(windows_crash_handler);
+  }
+#else
+  static void posix_crash_handler(int signal)
+  {
+    tools::log_stack_trace(("crashing with fatal signal " + std::to_string(signal)).c_str());
+#ifdef NDEBUG
+    _exit(1);
+#else
+    abort();
+#endif
+  }
+  static void setup_crash_dump()
+  {
+    signal(SIGSEGV, posix_crash_handler);
+    signal(SIGBUS, posix_crash_handler);
+    signal(SIGILL, posix_crash_handler);
+    signal(SIGFPE, posix_crash_handler);
+  }
+#endif
+#else
+  static void setup_crash_dump() {}
+#endif
+
   bool on_startup()
   {
     mlog_configure("", true);
+
+    setup_crash_dump();
 
     sanitize_locale();
 
@@ -615,6 +664,13 @@ std::string get_nix_version_display_string()
 
   bool is_local_address(const std::string &address)
   {
+    // always assume Tor/I2P addresses to be untrusted by default
+    if (boost::ends_with(address, ".onion") || boost::ends_with(address, ".i2p"))
+    {
+      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
+      return false;
+    }
+
     // extract host
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(address, u_c))
@@ -707,5 +763,23 @@ std::string get_nix_version_display_string()
     if (!SHA256_Final((unsigned char*)hash.data, &ctx))
       return false;
     return true;
+  }
+
+  boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str)
+  {
+    auto pos = str.find(":");
+    bool r = pos != std::string::npos;
+    uint32_t major;
+    r = r && epee::string_tools::get_xtype_from_string(major, str.substr(0, pos));
+    uint32_t minor;
+    r = r && epee::string_tools::get_xtype_from_string(minor, str.substr(pos + 1));
+    if (r)
+    {
+      return std::make_pair(major, minor);
+    }
+    else
+    {
+      return {};
+    }
   }
 }

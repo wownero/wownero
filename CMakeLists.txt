@@ -153,6 +153,15 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+# Update and init submodules by default
+if(NOT MANUAL_SUBMODULES)
+  find_package(Git)
+  if(GIT_FOUND)
+    message(STATUS "Initializing submodules")
+    execute_process(COMMAND git "submodule" "update" "--init" "--recursive" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+endif()
+
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
@@ -236,7 +245,7 @@ endif()
 # elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
 #   set(BSDI TRUE)
 
-include_directories(external/easylogging++ src contrib/epee/include external)
+include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external)
 
 if(APPLE)
   include_directories(SYSTEM /usr/include/malloc)
@@ -421,22 +430,10 @@ add_definition_if_function_found(strptime HAVE_STRPTIME)
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
 # Generate header for embedded translations
-include(ExternalProject)
-ExternalProject_Add(generate_translations_header
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
-  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
-  INSTALL_COMMAND cmake -E echo "")
+add_subdirectory(translations)
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 add_subdirectory(external)
-
-# Final setup for miniupnpc
-if(UPNP_STATIC OR IOS)
-  add_definitions("-DUPNP_STATIC")
-else()
-  add_definitions("-DUPNP_DYNAMIC")
-  include_directories(${UPNP_INCLUDE})
-endif()
 
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})
@@ -460,9 +457,12 @@ link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for libpcsc
 if (PCSC_FOUND) 
+  message(STATUS "Using PCSC include dir at ${PCSC_INCLUDE_DIR}")
   add_definitions(-DHAVE_PCSC)
   include_directories(${PCSC_INCLUDE_DIR})
   link_directories(${LIBPCSC_LIBRARY_DIRS})
+else (PCSC_FOUND)
+  message(STATUS "Could not find PCSC")
 endif()
 
 if(MSVC)
@@ -488,6 +488,17 @@ else()
     set(ARCH_FLAG "-march=armv8")
   else()
     set(ARCH_FLAG "-march=${ARCH}")
+    if(ARCH STREQUAL "native")
+      check_c_compiler_flag(-march=native CC_SUPPORTS_MARCH_NATIVE)
+      if (NOT CC_SUPPORTS_MARCH_NATIVE)
+        check_c_compiler_flag(-mtune=native CC_SUPPORTS_MTUNE_NATIVE)
+        if (CC_SUPPORTS_MTUNE_NATIVE)
+          set(ARCH_FLAG "-mtune=${ARCH}")
+        else()
+          set(ARCH_FLAG "")
+        endif()
+      endif()
+    endif()
   endif()
   set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-unused-variable -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(NOT MINGW)
@@ -553,10 +564,15 @@ else()
   add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
 
   # -fstack-protector
-  add_c_flag_if_supported(-fstack-protector C_SECURITY_FLAGS)
-  add_cxx_flag_if_supported(-fstack-protector CXX_SECURITY_FLAGS)
-  add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
-  add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
+  if (NOT WIN32)
+    add_c_flag_if_supported(-fstack-protector C_SECURITY_FLAGS)
+    add_cxx_flag_if_supported(-fstack-protector CXX_SECURITY_FLAGS)
+    add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
+    add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
+  endif()
+
+  add_c_flag_if_supported(-mmitigate-rop C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-mmitigate-rop CXX_SECURITY_FLAGS)
 
   # linker
   if (NOT WIN32)
@@ -799,7 +815,8 @@ endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
-  set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
+  set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32)
   set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} icuio icuin icuuc icudt icutu iconv)
 elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
@@ -832,6 +849,7 @@ endif()
 
 if(ANDROID)
   set(ATOMIC libatomic.a)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=user-defined-warnings")
 endif()
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32" AND NOT IOS AND NOT FREEBSD)
   find_library(ATOMIC atomic)

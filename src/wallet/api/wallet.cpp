@@ -60,7 +60,6 @@ namespace Monero {
 
 namespace {
     // copy-pasted from simplewallet
-    static const size_t DEFAULT_MIXIN = 4;
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
     static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
@@ -305,14 +304,14 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
-void Wallet::init(const char *argv0, const char *default_log_base_name) {
+void Wallet::init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console) {
 #ifdef WIN32
     // Activate UTF-8 support for Boost filesystem classes on Windows
     std::locale::global(boost::locale::generator().generate(""));
     boost::filesystem::path::imbue(std::locale());
 #endif
     epee::string_tools::set_module_name_and_folder(argv0);
-    mlog_configure(mlog_get_default_log_path(default_log_base_name), true);
+    mlog_configure(log_path.empty() ? mlog_get_default_log_path(default_log_base_name) : log_path.c_str(), console);
 }
 
 void Wallet::debug(const std::string &category, const std::string &str) {
@@ -338,6 +337,7 @@ WalletImpl::WalletImpl(NetworkType nettype)
     , m_trustedDaemon(false)
     , m_wallet2Callback(nullptr)
     , m_recoveringFromSeed(false)
+    , m_recoveringFromDevice(false)
     , m_synchronized(false)
     , m_rebuildWalletCache(false)
     , m_is_connected(false)
@@ -385,6 +385,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 
     clearStatus();
     m_recoveringFromSeed = false;
+    m_recoveringFromDevice = false;
     bool keys_file_exists;
     bool wallet_file_exists;
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
@@ -584,11 +585,29 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
     return true;
 }
 
+bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &password, const std::string &device_name)
+{
+    clearStatus();
+    m_recoveringFromSeed = false;
+    m_recoveringFromDevice = true;
+    try
+    {
+        m_wallet->restore(path, password, device_name);
+        LOG_PRINT_L1("Generated new wallet from device: " + device_name);
+    }
+    catch (const std::exception& e) {
+        m_errorString = string(tr("failed to generate new wallet: ")) + e.what();
+        m_status = Status_Error;
+        return false;
+    }
+    return true;
+}
 
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
     m_recoveringFromSeed = false;
+    m_recoveringFromDevice = false;
     try {
         // TODO: handle "deprecated"
         // Check if wallet cache exists
@@ -628,6 +647,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     }
 
     m_recoveringFromSeed = true;
+    m_recoveringFromDevice = false;
     crypto::secret_key recovery_key;
     std::string old_language;
     if (!crypto::ElectrumWords::words_to_bytes(seed, recovery_key, old_language)) {
@@ -835,6 +855,16 @@ void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
 void WalletImpl::setRecoveringFromSeed(bool recoveringFromSeed)
 {
     m_recoveringFromSeed = recoveringFromSeed;
+}
+
+void WalletImpl::setRecoveringFromDevice(bool recoveringFromDevice)
+{
+    m_recoveringFromDevice = recoveringFromDevice;
+}
+
+void WalletImpl::setSubaddressLookahead(uint32_t major, uint32_t minor)
+{
+    m_wallet->set_subaddress_lookahead(major, minor);
 }
 
 uint64_t WalletImpl::balance(uint32_t accountIndex) const
@@ -1106,9 +1136,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 
     // indicates if dst_addr is integrated address (address + payment_id)
     // TODO:  (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
-    size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
-    if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIXIN;
+    size_t fake_outs_count = DEFAULT_MIXIN;
 
     uint32_t adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
 
@@ -1408,15 +1436,6 @@ void WalletImpl::setListener(WalletListener *l)
     m_wallet2Callback->setListener(l);
 }
 
-uint32_t WalletImpl::defaultMixin() const
-{
-    return m_wallet->default_mixin();
-}
-
-void WalletImpl::setDefaultMixin(uint32_t arg)
-{
-    m_wallet->default_mixin(arg);
-}
 
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 {
@@ -1752,7 +1771,7 @@ void WalletImpl::refreshThreadFunc()
         // if auto refresh enabled, we wait for the "m_refreshIntervalSeconds" interval.
         // if not - we wait forever
         if (m_refreshIntervalMillis > 0) {
-            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis);
+            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis.load());
             m_refreshCV.timed_wait(lock, wait_for_ms);
         } else {
             m_refreshCV.wait(lock);
@@ -1839,7 +1858,7 @@ bool WalletImpl::isNewWallet() const
     // with the daemon (pull hashes instead of pull blocks).
     // If wallet cache is rebuilt, creation height stored in .keys is used.
     // Watch only wallet is a copy of an existing wallet. 
-    return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache) && !watchOnly();
+    return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_recoveringFromDevice || m_rebuildWalletCache) && !watchOnly();
 }
 
 bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit, bool ssl)

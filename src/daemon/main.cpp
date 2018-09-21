@@ -118,7 +118,7 @@ int main(int argc, char const * argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+      std::cout << "Wownero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
       std::cout << "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]" << std::endl << std::endl;
       std::cout << visible_options << std::endl;
       return 0;
@@ -127,7 +127,7 @@ int main(int argc, char const * argv[])
     // Monero Version
     if (command_line::get_arg(vm, command_line::arg_version))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
+      std::cout << "Wownero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
       return 0;
     }
 
@@ -136,6 +136,28 @@ int main(int argc, char const * argv[])
     {
       std::cout << "OS: " << tools::get_os_version_string() << ENDL;
       return 0;
+    }
+
+    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
+    boost::filesystem::path config_path(config);
+    boost::system::error_code ec;
+    if (bf::exists(config_path, ec))
+    {
+      try
+      {
+        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      }
+      catch (const std::exception &e)
+      {
+        // log system isn't initialized yet
+        std::cerr << "Error parsing config file: " << e.what() << std::endl;
+        throw;
+      }
+    }
+    else if (!command_line::is_arg_defaulted(vm, daemon_args::arg_config_file))
+    {
+      std::cerr << "Can't find config file " << config << std::endl;
+      return 1;
     }
 
     const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
@@ -170,29 +192,6 @@ int main(int argc, char const * argv[])
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
     bf::path relative_path_base = data_dir;
 
-    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
-
-    boost::filesystem::path data_dir_path(data_dir);
-    boost::filesystem::path config_path(config);
-    if (!config_path.has_parent_path())
-    {
-      config_path = data_dir / config_path;
-    }
-
-    boost::system::error_code ec;
-    if (bf::exists(config_path, ec))
-    {
-      try
-      {
-        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
-      }
-      catch (const std::exception &e)
-      {
-        // log system isn't initialized yet
-        std::cerr << "Error parsing config file: " << e.what() << std::endl;
-        throw;
-      }
-    }
     po::notify(vm);
 
     // log_file_path
@@ -263,6 +262,9 @@ int main(int argc, char const * argv[])
         }
         else
         {
+#ifdef HAVE_READLINE
+          rdln::suspend_readline pause_readline;
+#endif
           std::cerr << "Unknown command: " << command.front() << std::endl;
           return 1;
         }
@@ -277,7 +279,7 @@ int main(int argc, char const * argv[])
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     // logging is now set up
-    MGINFO("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
+    MGINFO("Wownero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
 
     MINFO("Moving from main() into the daemonize now.");
 

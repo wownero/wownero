@@ -903,7 +903,7 @@ void BlockchainDB::fixup()
       "633cdedeb3b96ec4f234c670254c6f721e0b368d00b48c6b26759db7d62cf52d",
     };
 
-    if (height() > 202612)
+    if (height() > 202612 && strcmp(CRYPTONOTE_NAME, "monero")==0)
     {
       for (const auto &kis: key_images_202612)
       {
@@ -916,7 +916,7 @@ void BlockchainDB::fixup()
         }
       }
     }
-    if (height() > 685498)
+    if (height() > 685498 && strcmp(CRYPTONOTE_NAME, "monero")==0)
     {
       for (const auto &kis: key_images_685498)
       {
