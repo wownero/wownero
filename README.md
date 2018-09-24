@@ -12,6 +12,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - Mail: [wownero@protonmail.com](mailto:wownero@protonmail.com)
 - GitHub: [https://github.com/wownero/wownero](https://github.com/wownero/wownero)
 - IRC: [#wownero on Freenode](https://kiwiirc.com/client/irc.freenode.net/?nick=suchchatter|?#wownero)
+- Bitmessage Chan: wownero (`BM-2cSzWtrj2pzLva9GF1Jp2TYsnLjrnJpvba`)
 
 ## Vulnerability response
 
