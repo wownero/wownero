@@ -81,8 +81,8 @@
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V2                      DIFFICULTY_WINDOW_V2 + 1 // added +1 to make N=N
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
-#define DIFFICULTY_HEIGHT                               55000 // v9 fork height
-#define DIFFICULTY_GUESS                                100000000 // 100m
+#define DIFFICULTY_HEIGHT                               56269 // v9 fork height
+#define DIFFICULTY_GUESS                                40000000 // difficulty at fork 40m
 #define DIFFICULTY_MINIMUM                              10000000 // minimum difficulty set to 10m
 #define DIFFICULTY_TESTNET_HEIGHT                       100
 #define DIFFICULTY_TESTNET_GUESS                        5069
