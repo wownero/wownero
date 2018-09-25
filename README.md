@@ -12,6 +12,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - Mail: [wownero@protonmail.com](mailto:wownero@protonmail.com)
 - GitHub: [https://github.com/wownero/wownero](https://github.com/wownero/wownero)
 - IRC: [#wownero on Freenode](https://kiwiirc.com/client/irc.freenode.net/?nick=suchchatter|?#wownero)
+- Bitmessage Chan: wownero (`BM-2cSzWtrj2pzLva9GF1Jp2TYsnLjrnJpvba`)
 
 ## Vulnerability response
 
@@ -94,6 +95,7 @@ Dates are provided in the format YYYY-MM-DD.
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1                              | 2018-04-01 | v7                | v0.1.0.0               | v0.1.0.0                  | Cryptonight variant 1, ringsize >= 8, sorted inputs
 | 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
+| 56269                          | 2018-10-06 | v9                | v0.3.0.0               | v0.3.0.0                  | Cryptonight variant 2, LWMA v2, ringsize = 22, XXX
 
 X's indicate that these details have not been determined as of commit date.
 
