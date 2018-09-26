@@ -3934,9 +3934,9 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<c
 
       crypto::hash hash;
       cn_fast_hash(data.data() + (n - first_index) * HASH_OF_HASHES_STEP, HASH_OF_HASHES_STEP * sizeof(crypto::hash), hash);
-MWARNING("block: " << height << " - " << epee::string_tools::pod_to_hex(hashes.front()));
-MWARNING("block: " << height + hashes.size() << " - " << epee::string_tools::pod_to_hex(hashes.back()));
-MWARNING("first_index: " << first_index << " - " << last_index);
+MDEBUG("block: " << height << " - " << epee::string_tools::pod_to_hex(hashes.front()));
+MDEBUG("block: " << height + hashes.size() << " - " << epee::string_tools::pod_to_hex(hashes.back()));
+MDEBUG("first_index: " << first_index << " - " << last_index);
       bool valid = hash == m_blocks_hash_of_hashes[n];
 
       // add to the known hashes array
