@@ -163,10 +163,6 @@ namespace cryptonote
   {
     if (nettype == TESTNET)
     {
-      ADD_CHECKPOINT(1,     "4acea72fb2e9cb1a697930ebebf67d63c62c4dc711cc0764ba31f9437f908564");
-      ADD_CHECKPOINT(10,    "91f126cd60861f1801eeedbe6068ac997f09644bc7a3527fbc7457aa254ef399");
-      ADD_CHECKPOINT(100,   "6b9d737d08707f3361d095a31f78bbb9f828088c92699b0326cde4ea59cd82ac");
-      ADD_CHECKPOINT(1000,  "c9bed1b23c3c5a5c7cfac3cff786173b65e2cea8005d8ef686b56708281c60cf");
       return true;
     }
     if (nettype == STAGENET)
@@ -184,7 +180,12 @@ namespace cryptonote
       ADD_CHECKPOINT(6969,  "aa7b66e8c461065139b55c29538a39c33ceda93e587f84d490ed573d80511c87"); //Hard fork to v8
       ADD_CHECKPOINT(7000,  "2711bd33b107f744ad8bf98c1acefa18658780079496bd2f3a36f2e20b261f8e");
       ADD_CHECKPOINT(7500,  "5975967c4624f13f058acafe7adf9355e03e8e802eeadc84ccb22ea588bc0762");
-      ADD_CHECKPOINT(7900,  "d9bc18cb35feb6b26bc5a19bbdbf7c852d9cc02883acb5bbce2e87d8b2c86069");  
+      ADD_CHECKPOINT(7900,  "d9bc18cb35feb6b26bc5a19bbdbf7c852d9cc02883acb5bbce2e87d8b2c86069");
+      ADD_CHECKPOINT(10000,  "bc5bfbf1b26c8f976d1d792ece4c6a7e93064bec62b72f1d5beae74c3f273b3b");
+      ADD_CHECKPOINT(20000,  "52cc7edcb49eb02f28a653b824089a726f4050eb210263ee6f4180d388a1e5cc");
+      ADD_CHECKPOINT(30000,  "d22fde5dd240ade16d3250eb0aa5d1c16dc7cb51c20484e05eb274911032b3fa");
+      ADD_CHECKPOINT(40000,  "aee0d642322542ba069cb1c58ab2acd3560f108d4682c3dc3cb15a54d442d91f");
+      ADD_CHECKPOINT(50000,  "5286ac2a0f39b3aefcba363cd71f2760bd1e0d763cbc81026ebdc3f80a86541f");      
       return true;
   }
 
