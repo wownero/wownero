@@ -95,7 +95,7 @@ Dates are provided in the format YYYY-MM-DD.
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1                              | 2018-04-01 | v7                | v0.1.0.0               | v0.1.0.0                  | Cryptonight variant 1, ringsize >= 8, sorted inputs
 | 6969                           | 2018-04-24 | v8                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
-| 53666                          | 2018-10-06 | v9                | v0.3.0.0               | v0.3.0.0                  | Cryptonight variant 2, LWMA v2, ringsize = 22, XXX
+| 53666                          | 2018-10-06 | v9                | v0.3.0.0               | v0.3.0.1                  | Cryptonight variant 2, LWMA v2, ringsize = 22, XXX
 
 X's indicate that these details have not been determined as of commit date.
 
