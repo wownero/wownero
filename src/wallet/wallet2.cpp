@@ -651,7 +651,7 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_auto_refresh(true),
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
-  m_confirm_missing_payment_id(true),
+  m_confirm_subaddress(true),
   m_confirm_non_default_ring_size(true),
   m_ask_password(true),
   m_min_output_count(0),
@@ -897,11 +897,6 @@ std::string wallet2::get_subaddress_as_str(const cryptonote::subaddress_index& i
 {
   cryptonote::account_public_address address = get_subaddress(index);
   return cryptonote::get_account_address_as_str(m_nettype, !index.is_zero(), address);
-}
-//----------------------------------------------------------------------------------------------------
-std::string wallet2::get_integrated_address_as_str(const crypto::hash8& payment_id) const
-{
-  return cryptonote::get_account_integrated_address_as_str(m_nettype, get_address(), payment_id);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::add_subaddress_account(const std::string& label)
@@ -2623,8 +2618,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint64(m_refresh_from_block_height);
   json.AddMember("refresh_height", value2, json.GetAllocator());
 
-  value2.SetInt(m_confirm_missing_payment_id ? 1 :0);
-  json.AddMember("confirm_missing_payment_id", value2, json.GetAllocator());
+  value2.SetInt(m_confirm_subaddress ? 1 :0);
+  json.AddMember("confirm_subaddress", value2, json.GetAllocator());
 
   value2.SetInt(m_confirm_non_default_ring_size ? 1 :0);
   json.AddMember("confirm_non_default_ring_size", value2, json.GetAllocator());
@@ -2734,7 +2729,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
-    m_confirm_missing_payment_id = true;
+    m_confirm_subaddress = true;
     m_confirm_non_default_ring_size = true;
     m_ask_password = true;
     m_min_output_count = 0;
@@ -2837,8 +2832,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     m_refresh_from_block_height = field_refresh_height;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_missing_payment_id, int, Int, false, true);
-    m_confirm_missing_payment_id = field_confirm_missing_payment_id;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_subaddress, int, Int, false, true);
+    m_confirm_subaddress = field_confirm_subaddress;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_non_default_ring_size, int, Int, false, true);
     m_confirm_non_default_ring_size = field_confirm_non_default_ring_size;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, int, Int, false, true);
