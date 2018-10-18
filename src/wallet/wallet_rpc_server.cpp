@@ -2944,6 +2944,7 @@ just_dir:
     wrpc.send_stop_signal();
   });
   LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("WARNING: Payment IDs/integrated addresses will be deprecated soon. Use sub-addresses."));
   try
   {
     wrpc.run();
