@@ -1688,13 +1688,13 @@ bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = st
   return true;
 }
 
-bool simple_wallet::set_confirm_missing_payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::set_confirm_subaddress(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
     parse_bool_and_use(args[1], [&](bool r) {
-      m_wallet->confirm_missing_payment_id(r);
+      m_wallet->confirm_subaddress(r);
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     });
   }
@@ -1931,10 +1931,10 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
   "Commands:\n" <<
   tr("  \"balance\" - Show balance.\n") <<
   tr("  \"address\" - Show wallet's address.\n") <<
-  tr("  \"integrated_address\" - Show receiving address with an integrated payment ID.\n") <<
-  tr("  \"transfer [address|integrated_address] [amount]\" - Send WOW to an address.\n") <<
+  tr("  \"address new [optional note]\" - Create new sub-address with optional note, spaces are allowed.\n") <<
+  tr("  \"address all\" - Show all sub-addresses.\n") <<
+  tr("  \"transfer [address] [amount]\" - Send WOW to an address.\n") <<
   tr("  \"show_transfers [in|out|pending|failed|pool]\" - Show transactions.\n") <<
-  tr("  \"payments [payment ID]\" - Show transaction of a given payment ID.\n") <<
   tr("  \"sweep_all [address]\" - Send whole balance to another wallet.\n") <<
   tr("  \"seed\" - Show secret 25 words that can be used to recover this wallet.\n") <<
   tr("  \"refresh\" - Synchronize wallet with the Wownero network.\n") <<
@@ -2064,13 +2064,9 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::print_address, this, _1),
                            tr("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed>]"),
                            tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text."));
-  m_cmd_binder.set_handler("integrated_address",
-                           boost::bind(&simple_wallet::print_integrated_address, this, _1),
-                           tr("integrated_address [<payment_id> | <address>]"),
-                           tr("Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book",
                            boost::bind(&simple_wallet::address_book, this, _1),
-                           tr("address_book [(add ((<address> [pid <id>])|<integrated address>) [<description possibly with whitespaces>])|(delete <index>)]"),
+                           tr("address_book [(add ((<address> [pid <id>])) [<description possibly with whitespaces>])|(delete <index>)]"),
                            tr("Print all entries in the address book, optionally adding/deleting an entry to/from it."));
   m_cmd_binder.set_handler("save",
                            boost::bind(&simple_wallet::save, this, _1),
@@ -2319,7 +2315,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     success_msg_writer() << "priority = " << m_wallet->get_default_priority();
-    success_msg_writer() << "confirm-missing-payment-id = " << m_wallet->confirm_missing_payment_id();
+    success_msg_writer() << "confirm-subaddress = " << m_wallet->confirm_subaddress();
     success_msg_writer() << "ask-password = " << m_wallet->ask_password();
     success_msg_writer() << "unit = " << cryptonote::get_unit(cryptonote::get_default_decimal_point());
     success_msg_writer() << "min-outputs-count = " << m_wallet->get_min_output_count();
@@ -2373,7 +2369,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
     CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
-    CHECK_SIMPLE_VARIABLE("confirm-missing-payment-id", set_confirm_missing_payment_id, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("confirm-subaddress", set_confirm_subaddress, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("ask-password", set_ask_password, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("unit", set_unit, tr("wownero, millinero, micronero, nanonero, piconero"));
     CHECK_SIMPLE_VARIABLE("min-outputs-count", set_min_output_count, tr("unsigned integer"));
@@ -3470,6 +3466,8 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<
       prefix << ": " << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    message_writer(console_color_yellow, true) << "\n" << tr("When receiving WOW, "
+          "create a new sub-address for each transaction with the command “address new”. \nUse “address all” to see all sub-addresses.\n");
     if (m_wallet->get_account().get_device()) {
        message_writer(console_color_white, true) << "Wallet is on device: " << m_wallet->get_account().get_device().get_name();
     }
@@ -4346,7 +4344,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       std::string extra_nonce;
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      success_msg_writer() << tr("WARNING: Payment id is unencrypted, which might potentially compromise your privacy. An integrated address is recommended instead.\n");
+      success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
     }
     else
     {
@@ -4357,6 +4355,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         std::string extra_nonce;
         set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+        success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
       }
     }
 
@@ -4433,10 +4432,10 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     dsts.push_back(de);
   }
 
-  // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && dsts.size() > num_subaddresses)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && dsts.size() > num_subaddresses)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -4833,6 +4832,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       payment_id_seen = true;
+      success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
     }
     else
     {
@@ -4844,6 +4844,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
         set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
         payment_id_seen = true;
+        success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
       }
     }
 
@@ -4882,10 +4883,10 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     payment_id_seen = true;
   }
 
-  // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -5081,10 +5082,10 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     payment_id_seen = true;
   }
 
-  // prompt if there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -6675,56 +6676,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  crypto::hash8 payment_id;
-  if (args.size() > 1)
-  {
-    fail_msg_writer() << tr("usage: integrated_address [payment ID]");
-    return true;
-  }
-  if (args.size() == 0)
-  {
-    if (m_current_subaddress_account != 0)
-    {
-      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
-      return true;
-    }
-    payment_id = crypto::rand<crypto::hash8>();
-    success_msg_writer() << tr("Random payment ID: ") << payment_id;
-    success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
-    return true;
-  }
-  if(tools::wallet2::parse_short_payment_id(args.back(), payment_id))
-  {
-    if (m_current_subaddress_account != 0)
-    {
-      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
-      return true;
-    }
-    success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
-    return true;
-  }
-  else {
-    address_parse_info info;
-    if(get_account_address_from_str(info, m_wallet->nettype(), args.back()))
-    {
-      if (info.has_payment_id)
-      {
-        success_msg_writer() << boost::format(tr("Integrated address: %s, payment ID: %s")) %
-          get_account_address_as_str(m_wallet->nettype(), false, info.address) % epee::string_tools::pod_to_hex(info.payment_id);
-      }
-      else
-      {
-        success_msg_writer() << (info.is_subaddress ? tr("Subaddress: ") : tr("Standard address: ")) << get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address);
-      }
-      return true;
-    }
-  }
-  fail_msg_writer() << tr("failed to parse payment ID or address");
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
+
 bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if (args.size() == 0)
@@ -6732,7 +6684,7 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
   }
   else if (args.size() == 1 || (args[0] != "add" && args[0] != "delete"))
   {
-    fail_msg_writer() << tr("usage: address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)]");
+    fail_msg_writer() << tr("usage: address_book [(add (<address> [pid <long or short payment id>]) [<description possibly with whitespaces>])|(delete <index>)]");
     return true;
   }
   else if (args[0] == "add")
