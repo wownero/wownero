@@ -629,7 +629,6 @@ namespace tools
     std::vector<crypto::public_key> get_subaddress_spend_public_keys(uint32_t account, uint32_t begin, uint32_t end) const;
     std::string get_subaddress_as_str(const cryptonote::subaddress_index& index) const;
     std::string get_address_as_str() const { return get_subaddress_as_str({0, 0}); }
-    std::string get_integrated_address_as_str(const crypto::hash8& payment_id) const;
     void add_subaddress_account(const std::string& label);
     size_t get_num_subaddress_accounts() const { return m_subaddress_labels.size(); }
     size_t get_num_subaddresses(uint32_t index_major) const { return index_major < m_subaddress_labels.size() ? m_subaddress_labels[index_major].size() : 0; }
@@ -852,8 +851,8 @@ namespace tools
     void set_default_priority(uint32_t p) { m_default_priority = p; }
     bool auto_refresh() const { return m_auto_refresh; }
     void auto_refresh(bool r) { m_auto_refresh = r; }
-    bool confirm_missing_payment_id() const { return m_confirm_missing_payment_id; }
-    void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
+    bool confirm_subaddress() const { return m_confirm_subaddress; }
+    void confirm_subaddress(bool always) { m_confirm_subaddress = always; }
     bool ask_password() const { return m_ask_password; }
     void ask_password(bool always) { m_ask_password = always; }
     void set_min_output_count(uint32_t count) { m_min_output_count = count; }
@@ -1197,7 +1196,7 @@ namespace tools
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
-    bool m_confirm_missing_payment_id;
+    bool m_confirm_subaddress;
     bool m_confirm_non_default_ring_size;
     bool m_ask_password;
     uint32_t m_min_output_count;

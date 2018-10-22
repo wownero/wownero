@@ -744,14 +744,6 @@ std::string WalletImpl::address(uint32_t accountIndex, uint32_t addressIndex) co
     return m_wallet->get_subaddress_as_str({accountIndex, addressIndex});
 }
 
-std::string WalletImpl::integratedAddress(const std::string &payment_id) const
-{
-    crypto::hash8 pid;
-    if (!tools::wallet2::parse_short_payment_id(payment_id, pid)) {
-        return "";
-    }
-    return m_wallet->get_integrated_address_as_str(pid);
-}
 
 std::string WalletImpl::secretViewKey() const
 {
