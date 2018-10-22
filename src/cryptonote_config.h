@@ -83,7 +83,7 @@
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
 #define DIFFICULTY_HEIGHT                               53666 // v9 fork height
 #define DIFFICULTY_GUESS                                40000000 // difficulty at fork 40m
-#define DIFFICULTY_MINIMUM                              10000000 // minimum difficulty set to 10m
+#define DIFFICULTY_MINIMUM                              25000000 // minimum difficulty set to 25m
 #define DIFFICULTY_TESTNET_HEIGHT                       100
 #define DIFFICULTY_TESTNET_GUESS                        5069
 #define DIFFICULTY_TESTNET_MINIMUM                      4069
