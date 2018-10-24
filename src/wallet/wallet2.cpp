@@ -906,6 +906,12 @@ std::string wallet2::get_subaddress_as_str(const cryptonote::subaddress_index& i
   cryptonote::account_public_address address = get_subaddress(index);
   return cryptonote::get_account_address_as_str(m_nettype, !index.is_zero(), address);
 }
+
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::get_integrated_address_as_str(const crypto::hash8& payment_id) const
+{
+  return cryptonote::get_account_integrated_address_as_str(m_nettype, get_address(), payment_id);
+}
 //----------------------------------------------------------------------------------------------------
 void wallet2::add_subaddress_account(const std::string& label)
 {
