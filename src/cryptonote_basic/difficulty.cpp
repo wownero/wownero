@@ -256,12 +256,8 @@ namespace cryptonote {
 
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
 
-    if ( cryptonote::MAINNET && height <= DIFFICULTY_HEIGHT ){ 
+    if ( height <= DIFFICULTY_HEIGHT ){ 
       return static_cast<uint64_t>(DIFFICULTY_GUESS); 
-    }
-
-    if ( cryptonote::TESTNET && height <= DIFFICULTY_TESTNET_HEIGHT ){ 
-      return static_cast<uint64_t>(DIFFICULTY_TESTNET_GUESS);
     }
 
     for ( int64_t i = 1; i <= N; i++ ) {  
@@ -281,11 +277,8 @@ namespace cryptonote {
       next_D = std::max(next_D,(prev_D*108)/100); 
     }
 
-    if ( cryptonote::MAINNET && next_D < DIFFICULTY_MINIMUM ) { 
+    if ( next_D < DIFFICULTY_MINIMUM ) { 
       return static_cast<uint64_t>(DIFFICULTY_MINIMUM); 
-    }
-    else if ( cryptonote::TESTNET && next_D < DIFFICULTY_TESTNET_MINIMUM ) { 
-      return static_cast<uint64_t>(DIFFICULTY_TESTNET_MINIMUM); 
     }
     else { 
       return static_cast<uint64_t>(next_D); 
