@@ -1099,6 +1099,69 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_integrated_address(const wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    try
+    {
+      crypto::hash8 payment_id;
+      if (req.payment_id.empty())
+      {
+        payment_id = crypto::rand<crypto::hash8>();
+      }
+      else
+      {
+        if (!tools::wallet2::parse_short_payment_id(req.payment_id,payment_id))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Invalid payment ID";
+          return false;
+        }
+      }
+
+      res.integrated_address = m_wallet->get_integrated_address_as_str(payment_id);
+      res.payment_id = epee::string_tools::pod_to_hex(payment_id);
+      return true;
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_split_integrated_address(const wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    try
+    {
+      cryptonote::address_parse_info info;
+
+      if(!get_account_address_from_str(info, m_wallet->nettype(), req.integrated_address))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        er.message = "Invalid address";
+        return false;
+      }
+      if(!info.has_payment_id)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        er.message = "Address is not an integrated address";
+        return false;
+      }
+      res.standard_address = get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address);
+      res.payment_id = epee::string_tools::pod_to_hex(info.payment_id);
+      return true;
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_store(const wallet_rpc::COMMAND_RPC_STORE::request& req, wallet_rpc::COMMAND_RPC_STORE::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
