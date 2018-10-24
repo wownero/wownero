@@ -291,4 +291,43 @@ namespace cryptonote {
       return static_cast<uint64_t>(next_D); 
     }
   }
+
+  // LWMA-3 difficulty algorithm 
+  // Copyright (c) 2017-2018 Zawy, MIT License
+  difficulty_type next_difficulty_v4(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t height) {
+
+    uint64_t  T = DIFFICULTY_TARGET_V2;
+    uint64_t  N = DIFFICULTY_WINDOW_V2;
+    uint64_t  L(0), ST, sum_3_ST(0), next_D, prev_D, this_timestamp, previous_timestamp;
+
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
+
+    if ( height == DIFFICULTY_HEIGHT_V2 ){
+      return static_cast<uint64_t>(DIFFICULTY_GUESS);
+    }
+
+    previous_timestamp = timestamps[0];
+    for ( uint64_t i = 1; i <= N; i++) {
+      if ( timestamps[i] > previous_timestamp ) {
+        this_timestamp = timestamps[i];
+      } else { this_timestamp = previous_timestamp+1; }
+      ST = std::min(6*T ,this_timestamp - previous_timestamp);
+      previous_timestamp = this_timestamp;
+      L +=  ST * i ;
+      if ( i > N-3 ) { sum_3_ST += ST; }
+    }
+
+    next_D = ((cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+    prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
+    next_D = std::max((prev_D*67)/100, std::min(next_D, (prev_D*150)/100));
+
+    if ( sum_3_ST < (8*T)/10) {  next_D = std::max(next_D,(prev_D*108)/100); }
+
+    if ( next_D < DIFFICULTY_MINIMUM ) { 
+      return static_cast<uint64_t>(DIFFICULTY_MINIMUM); 
+    }
+    else {
+      return static_cast<uint64_t>(next_D);
+    }
+  }
 }

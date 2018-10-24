@@ -48,6 +48,7 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             4
 
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2            11
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
@@ -82,6 +83,7 @@
 #define DIFFICULTY_BLOCKS_COUNT_V2                      DIFFICULTY_WINDOW_V2 + 1 // added +1 to make N=N
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
 #define DIFFICULTY_HEIGHT                               53666 // v9 fork height
+#define DIFFICULTY_HEIGHT_V2                            777777 // v10 fork height
 #define DIFFICULTY_GUESS                                40000000 // difficulty at fork 40m
 #define DIFFICULTY_MINIMUM                              25000000 // minimum difficulty set to 25m
 #define DIFFICULTY_TESTNET_HEIGHT                       100
