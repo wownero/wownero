@@ -58,6 +58,7 @@
 #include "wallet_errors.h"
 #include "common/password.h"
 #include "node_rpc_proxy.h"
+#include "message_store.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -454,6 +455,7 @@ namespace tools
 
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
 
+
     /*!
      * \brief  Generates a wallet or restores one.
      * \param  wallet_              Name of wallet file
@@ -593,7 +595,7 @@ namespace tools
     bool init(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
-    void stop() { m_run.store(false, std::memory_order_relaxed); }
+    void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
@@ -1077,6 +1079,10 @@ namespace tools
     bool unblackball_output(const crypto::public_key &output);
     bool is_output_blackballed(const crypto::public_key &output) const;
 
+    // MMS -------------------------------------------------------------------------------------------------
+    mms::message_store& get_message_store() { return m_message_store; };
+    mms::multisig_wallet_state get_multisig_wallet_state();
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1148,6 +1154,7 @@ namespace tools
     std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;
+    std::string m_mms_file;
     epee::net_utils::http::http_simple_client m_http_client;
     hashchain m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
@@ -1232,6 +1239,11 @@ namespace tools
     std::string m_ring_database;
     bool m_ring_history_saved;
     std::unique_ptr<ringdb> m_ringdb;
+
+    mms::message_store m_message_store;
+    bool m_original_keys_available;
+    cryptonote::account_public_address m_original_address;
+    crypto::secret_key m_original_view_secret_key;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 24)
