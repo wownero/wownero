@@ -1665,7 +1665,7 @@ void simple_wallet::mms_info(const std::vector<std::string> &args)
 }
 
 void simple_wallet::mms_member(const std::vector<std::string> &args)
-// mms 0:member [1:<number> <2:label> [3:<transport_address> [4:<monero_address>]]]
+// mms 0:member [1:<number> <2:label> [3:<transport_address> [4:<wownero_address>]]]
 {
   mms::message_store& ms = m_wallet->get_message_store();
   const std::vector<mms::coalition_member> &members = ms.get_all_members();
@@ -1673,7 +1673,7 @@ void simple_wallet::mms_member(const std::vector<std::string> &args)
   {
     // Without further parameters list all defined members
     success_msg_writer() << boost::format("%2s %-20s %-s") % tr("#") % tr("Label") % tr("Transport Address");
-    success_msg_writer() << boost::format("%2s %-20s %-s") % "" % "" % tr("Monero Address");
+    success_msg_writer() << boost::format("%2s %-20s %-s") % "" % "" % tr("Wownero Address");
     for (size_t i = 0; i < members.size(); ++i)
     {
       const mms::coalition_member &member = members[i];
@@ -1708,7 +1708,7 @@ void simple_wallet::mms_member(const std::vector<std::string> &args)
   }
   if (args.size() < 3)
   {
-    fail_msg_writer() << tr("mms member [<number> <label> [<transport_address> [<monero_address>]]]");
+    fail_msg_writer() << tr("mms member [<number> <label> [<transport_address> [<wownero_address>]]]");
     return;
   }
 
@@ -1726,14 +1726,14 @@ void simple_wallet::mms_member(const std::vector<std::string> &args)
     bool ok = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), args[4], oa_prompter);
     if (!ok)
     {
-      fail_msg_writer() << tr("Invalid Monero address");
+      fail_msg_writer() << tr("Invalid Wownero address");
       return;
     }
     monero_address = info.address;
     const std::vector<mms::message> &messages = ms.get_all_messages();
     if ((messages.size() > 0) || state.multisig)
     {
-      fail_msg_writer() << tr("Wallet state does not allow changing Monero addresses anymore");
+      fail_msg_writer() << tr("Wallet state does not allow changing Wownero addresses anymore");
       return;
     }
   }
@@ -2104,7 +2104,7 @@ void simple_wallet::mms_help(const std::vector<std::string> &args)
   std::vector<std::string> help_args;
   help_args.push_back("mms");
   help_args.push_back(args[1]);
-  help(help_args);
+  help_advanced(help_args);
 }
 
 bool simple_wallet::mms(const std::vector<std::string> &args)
@@ -3196,9 +3196,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("mms",
                            boost::bind(&simple_wallet::mms, this, _1),
                            tr("mms [<subcommand> [<subcommand_parameters>]]"),
-                           tr("Interface with the MMS (Monero Messaging System)\n"
+                           tr("Interface with the MMS (Multisig Messaging System)\n"
 			      "subcommand is one of: init, info, member, list, next, sync, transfer, delete, send, receive, note, show, set, help\n"
-			      "Get help about a subcommand with: help mms <subcommand>"));
+			      "Get help about a subcommand with: help_advanced mms <subcommand>, or: mms help <subcommand>"));
   m_cmd_binder.set_handler("mms init",
                            boost::bind(&simple_wallet::mms, this, _1),
                            tr("mms init <threshold>/<coalition_size> <own_label> <own_transport_address>"),
@@ -3209,8 +3209,8 @@ simple_wallet::simple_wallet()
                            tr("Display current MMS configuration"));
   m_cmd_binder.set_handler("mms member",
                            boost::bind(&simple_wallet::mms, this, _1),
-                           tr("mms member [<number> <label> [<transport_address> [<monero_address>]]]"),
-                           tr("Set or modify coalition member info (single-word label, transport address, Monero address), or list all members"));
+                           tr("mms member [<number> <label> [<transport_address> [<wownero_address>]]]"),
+                           tr("Set or modify coalition member info (single-word label, transport address, Wownero address), or list all members"));
   m_cmd_binder.set_handler("mms list",
                            boost::bind(&simple_wallet::mms, this, _1),
                            tr("mms list"),
