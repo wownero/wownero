@@ -256,9 +256,9 @@ namespace cryptonote {
 
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
 
-    if ( height <= DIFFICULTY_HEIGHT ){ 
+    /*if ( height <= DIFFICULTY_HEIGHT ){ 
       return static_cast<uint64_t>(DIFFICULTY_GUESS); 
-    }
+    }*/
 
     for ( int64_t i = 1; i <= N; i++ ) {  
       ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
