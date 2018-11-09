@@ -91,13 +91,13 @@ namespace cryptonote
     //! \return Prompts user for password and verifies against local file. Logs on error and returns `none`
     boost::optional<tools::password_container> get_and_verify_password() const;
 
-    bool new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, const std::string &old_language);
-    bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
-    bool new_wallet(const boost::program_options::variables_map& vm,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
         const std::string &multisig_keys, const std::string &old_language);
-    bool new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
@@ -121,7 +121,7 @@ namespace cryptonote
     bool set_store_tx_info(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_auto_refresh(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_refresh_type(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_confirm_missing_payment_id(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_confirm_subaddress(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ask_password(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_unit(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_min_output_count(const std::vector<std::string> &args = std::vector<std::string>());
@@ -167,7 +167,6 @@ namespace cryptonote
     void print_accounts();
     void print_accounts(const std::string& tag);
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
-    bool print_integrated_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool address_book(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool save_watch_only(const std::vector<std::string> &args);
@@ -211,6 +210,7 @@ namespace cryptonote
     bool sign_multisig(const std::vector<std::string>& args);
     bool submit_multisig(const std::vector<std::string>& args);
     bool export_raw_multisig(const std::vector<std::string>& args);
+    bool mms(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool set_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
@@ -352,5 +352,38 @@ namespace cryptonote
     bool m_auto_refresh_refreshing;
     std::atomic<bool> m_in_manual_refresh;
     uint32_t m_current_subaddress_account;
+
+    // MMS
+    mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };
+    mms::multisig_wallet_state get_multisig_wallet_state() const { return m_wallet->get_multisig_wallet_state(); };
+    bool mms_active() const { return get_message_store().get_active(); };
+    bool choose_mms_processing(const std::vector<mms::processing_data> &data_list, uint32_t &choice);
+    void list_mms_messages(const std::vector<mms::message> &messages);
+    void show_message(const mms::message &m);
+    void ask_send_all_ready_messages();
+    void check_for_messages();
+    bool user_confirms(const std::string &question);
+    bool get_message_from_arg(const std::string &arg, mms::message &m);
+    bool get_number_from_arg(const std::string &arg, uint32_t &number, const uint32_t lower_bound, const uint32_t upper_bound);
+
+    void mms_init(const std::vector<std::string> &args);
+    void mms_info(const std::vector<std::string> &args);
+    void mms_member(const std::vector<std::string> &args);
+    void mms_list(const std::vector<std::string> &args);
+    void mms_next(const std::vector<std::string> &args);
+    void mms_sync(const std::vector<std::string> &args);
+    void mms_transfer(const std::vector<std::string> &args);
+    void mms_delete(const std::vector<std::string> &args);
+    void mms_send(const std::vector<std::string> &args);
+    void mms_receive(const std::vector<std::string> &args);
+    void mms_note(const std::vector<std::string> &args);
+    void mms_show(const std::vector<std::string> &args);
+    void mms_set(const std::vector<std::string> &args);
+    void mms_help(const std::vector<std::string> &args);
+    void mms_debug(const std::vector<std::string> &args);
+
+    bool m_called_by_mms = false;
+    bool called_by_mms();
+    bool m_command_successful;
   };
 }

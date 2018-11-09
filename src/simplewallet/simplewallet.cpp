@@ -64,6 +64,7 @@
 #include "wallet/wallet_args.h"
 #include "version.h"
 #include <stdexcept>
+#include "wallet/message_store.h"
 
 #ifdef WIN32
 #include <boost/locale.hpp>
@@ -93,13 +94,8 @@ typedef cryptonote::simple_wallet sw;
   m_auto_refresh_enabled.store(false, std::memory_order_relaxed); \
   /* stop any background refresh, and take over */ \
   m_wallet->stop(); \
-  m_idle_mutex.lock(); \
-  while (m_auto_refresh_refreshing) \
-    m_idle_cond.notify_one(); \
-  m_idle_mutex.unlock(); \
-/*  if (auto_refresh_run)*/ \
-    /*m_auto_refresh_thread.join();*/ \
   boost::unique_lock<boost::mutex> lock(m_idle_mutex); \
+  m_idle_cond.notify_all(); \
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
   })
@@ -525,6 +521,18 @@ bool parse_priority(const std::string& arg, uint32_t& priority)
   return false;
 }
 
+std::string join_priority_strings(const char *delimiter)
+{
+  std::string s;
+  for (size_t n = 0; n < allowed_priority_strings.size(); ++n)
+  {
+    if (!s.empty())
+      s += delimiter;
+    s += allowed_priority_strings[n];
+  }
+  return s;
+}
+
 std::string simple_wallet::get_commands_str()
 {
   std::stringstream ss;
@@ -780,6 +788,8 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
 
 bool simple_wallet::prepare_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
@@ -813,11 +823,20 @@ bool simple_wallet::prepare_multisig(const std::vector<std::string> &args)
   success_msg_writer() << multisig_info;
   success_msg_writer() << tr("Send this multisig info to all other participants, then use make_multisig <threshold> <info1> [<info2>...] with others' multisig info");
   success_msg_writer() << tr("This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ");
+
+  if (by_mms)
+  {
+    get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::key_set, multisig_info);
+  }
+
+  m_command_successful = true;
   return true;
 }
 
 bool simple_wallet::make_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
@@ -873,6 +892,11 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
       success_msg_writer() << tr("Another step is needed");
       success_msg_writer() << multisig_extra_info;
       success_msg_writer() << tr("Send this multisig info to all other participants, then use finalize_multisig <info1> [<info2>...] with others' multisig info");
+      if (by_mms)
+      {
+        get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::finalizing_key_set, multisig_extra_info);
+      }
+      m_command_successful = true;
       return true;
     }
   }
@@ -891,11 +915,14 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
   success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
+  m_command_successful = true;
   return true;
 }
 
 bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   bool ready;
   if (m_wallet->key_on_device())
   {
@@ -940,11 +967,14 @@ bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
     return true;
   }
 
+  m_command_successful = true;
   return true;
 }
 
 bool simple_wallet::export_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   bool ready;
   if (m_wallet->key_on_device())
   {
@@ -970,17 +1000,24 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
     return true;
 
   const std::string filename = args[0];
-  if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
+  if (!by_mms && m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
   try
   {
     cryptonote::blobdata ciphertext = m_wallet->export_multisig();
 
-    bool r = epee::file_io_utils::save_string_to_file(filename, ciphertext);
-    if (!r)
+    if (by_mms)
     {
-      fail_msg_writer() << tr("failed to save file ") << filename;
-      return true;
+      get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::multisig_sync_data, ciphertext);
+    }
+    else
+    {
+      bool r = epee::file_io_utils::save_string_to_file(filename, ciphertext);
+      if (!r)
+      {
+	fail_msg_writer() << tr("failed to save file ") << filename;
+	return true;
+      }
     }
   }
   catch (const std::exception &e)
@@ -991,11 +1028,14 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
   }
 
   success_msg_writer() << tr("Multisig info exported to ") << filename;
+  m_command_successful = true;
   return true;
 }
 
 bool simple_wallet::import_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   bool ready;
   uint32_t threshold, total;
   if (m_wallet->key_on_device())
@@ -1024,15 +1064,22 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
   std::vector<cryptonote::blobdata> info;
   for (size_t n = 0; n < args.size(); ++n)
   {
-    const std::string filename = args[n];
-    std::string data;
-    bool r = epee::file_io_utils::load_file_to_string(filename, data);
-    if (!r)
+    if (by_mms)
     {
-      fail_msg_writer() << tr("failed to read file ") << filename;
-      return true;
+      info.push_back(args[n]);
     }
-    info.push_back(std::move(data));
+    else
+    {
+      const std::string &filename = args[n];
+      std::string data;
+      bool r = epee::file_io_utils::load_file_to_string(filename, data);
+      if (!r)
+      {
+	fail_msg_writer() << tr("failed to read file ") << filename;
+	return true;
+      }
+      info.push_back(std::move(data));
+    }
   }
 
   LOCK_IDLE_SCOPE();
@@ -1044,6 +1091,7 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
     success_msg_writer() << tr("Multisig info imported");
+    m_command_successful = true;
   }
   catch (const std::exception &e)
   {
@@ -1076,6 +1124,8 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs)
 
 bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   bool ready;
   if (m_wallet->key_on_device())
   {
@@ -1104,11 +1154,48 @@ bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
   uint32_t signers = 0;
   try
   {
-    bool r = m_wallet->sign_multisig_tx_from_file(filename, txids, [&](const tools::wallet2::multisig_tx_set &tx){ signers = tx.m_signers.size(); return accept_loaded_tx(tx); });
-    if (!r)
+    if (by_mms)
     {
-      fail_msg_writer() << tr("Failed to sign multisig transaction");
-      return true;
+      tools::wallet2::multisig_tx_set exported_txs;
+      std::string ciphertext;
+      bool r = m_wallet->load_multisig_tx(args[0], exported_txs, [&](const tools::wallet2::multisig_tx_set &tx){ signers = tx.m_signers.size(); return accept_loaded_tx(tx); });
+      if (r)
+      {
+	r = m_wallet->sign_multisig_tx(exported_txs, txids);
+      }
+      if (r)
+      {
+	ciphertext = m_wallet->save_multisig_tx(exported_txs);
+        if (ciphertext.empty())
+	{
+	  r = false;
+	}
+      }
+      if (r)
+      {
+	mms::message_type message_type = mms::message_type::fully_signed_tx;
+	if (txids.empty())
+	{
+	  message_type = mms::message_type::partially_signed_tx;
+	}
+        get_message_store().process_wallet_created_data(get_multisig_wallet_state(), message_type, ciphertext);
+	filename = "MMS";   // for the messages below
+	m_command_successful = true;
+      }
+      else
+      {
+	fail_msg_writer() << tr("Failed to sign multisig transaction");
+	return true;
+      }
+    }
+    else
+    {
+      bool r = m_wallet->sign_multisig_tx_from_file(filename, txids, [&](const tools::wallet2::multisig_tx_set &tx){ signers = tx.m_signers.size(); return accept_loaded_tx(tx); });
+      if (!r)
+      {
+	fail_msg_writer() << tr("Failed to sign multisig transaction");
+	return true;
+      }
     }
   }
   catch (const tools::error::multisig_export_needed& e)
@@ -1148,6 +1235,8 @@ bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
 
 bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
 {
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   bool ready;
   uint32_t threshold;
   if (m_wallet->key_on_device())
@@ -1179,11 +1268,23 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
   try
   {
     tools::wallet2::multisig_tx_set txs;
-    bool r = m_wallet->load_multisig_tx_from_file(filename, txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
-    if (!r)
+    if (by_mms)
     {
-      fail_msg_writer() << tr("Failed to load multisig transaction from file");
-      return true;
+      bool r = m_wallet->load_multisig_tx(args[0], txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to load multisig transaction from MMS");
+	return true;
+      }
+    }
+    else
+    {
+      bool r = m_wallet->load_multisig_tx_from_file(filename, txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
+      if (!r)
+      {
+	fail_msg_writer() << tr("Failed to load multisig transaction from file");
+	return true;
+      }
     }
     if (txs.m_signers.size() < threshold)
     {
@@ -1199,6 +1300,7 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
       success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << get_transaction_hash(ptx.tx) << ENDL
           << tr("You can check its status by using the `show_transfers` command.");
     }
+    m_command_successful = true;
   }
   catch (const std::exception &e)
   {
@@ -1288,6 +1390,816 @@ bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
 
   return true;
 }
+
+// MMS ---------------------------------------------------------------------------------------------------
+
+// Access to the message store, or more exactly to the list of the messages that can be changed
+// by the idle thread, is guarded by the same mutex-based mechanism as access to the wallet
+// as a whole and thus e.g. uses the "LOCK_IDLE_SCOPE" macro. This is a little over-cautious, but
+// simple and safe. Care has to be taken however where MMS methods call other simplewallet methods
+// that use "LOCK_IDLE_SCOPE" as this cannot be nested!
+
+// Methods for commands like "export_multisig_info" usually read data from file(s) or write data
+// to files. The MMS calls now those methods as well, to produce data for messages and to process data
+// from messages. As it would be quite inconvenient for the MMS to write data for such methods to files
+// first or get data out of result files after the call, those methods detect a call from the MMS and
+// expect data as arguments instead of files and give back data by calling 'process_wallet_created_data'.
+bool simple_wallet::called_by_mms()
+{
+  bool by_mms = m_called_by_mms;
+  m_called_by_mms = false;
+  return by_mms;
+}
+
+bool simple_wallet::user_confirms(const std::string &question)
+{
+   std::string answer = input_line(question + tr(" (Y/Yes/N/No): "));
+   return !std::cin.eof() && command_line::is_yes(answer);
+}
+
+bool simple_wallet::get_number_from_arg(const std::string &arg, uint32_t &number, const uint32_t lower_bound, const uint32_t upper_bound)
+{
+  bool valid = false;
+  try
+  {
+    number = boost::lexical_cast<uint32_t>(arg);
+    valid = (number >= lower_bound) && (number <= upper_bound);
+  }
+  catch(const boost::bad_lexical_cast &)
+  {
+  }
+  return valid;
+}
+
+bool simple_wallet::choose_mms_processing(const std::vector<mms::processing_data> &data_list, uint32_t &choice)
+{
+  uint32_t choices = data_list.size();
+  if (choices == 1)
+  {
+    choice = 0;
+    return true;
+  }
+  mms::message_store& ms = m_wallet->get_message_store();
+  success_msg_writer() << tr("Choose processing:");
+  std::string text;
+  for (size_t i = 0; i < choices; ++i)
+  {
+    const mms::processing_data &data = data_list[i];
+    text = std::to_string(i+1) + ": ";
+    switch (data.processing)
+    {
+    case mms::message_processing::sign_tx:
+      text += tr("Sign tx");
+      break;
+    case mms::message_processing::send_tx:
+    {
+      mms::message m;
+      ms.get_message_by_id(data.message_ids[0], m);
+      if (m.type == mms::message_type::fully_signed_tx)
+      {
+        text += tr("Send the tx for submission to ");
+      }
+      else
+      {
+        text += tr("Send the tx for signing to ");
+      }
+      mms::coalition_member member = ms.get_member(data.receiving_member_index);
+      text += ms.member_to_string(member, 50);
+      break;
+    }
+    case mms::message_processing::submit_tx:
+      text += tr("Submit tx");
+      break;
+    default:
+      text += tr("unknown");
+      break;
+    }
+    success_msg_writer() << text;
+  }
+
+  std::string line = input_line(tr("Choice: "));
+  if (std::cin.eof() || line.empty())
+  {
+    return false;
+  }
+  bool choice_ok = get_number_from_arg(line, choice, 1, choices);
+  if (choice_ok)
+  {
+    choice--;
+  }
+  else
+  {
+    fail_msg_writer() << tr("Wrong choice");
+  }
+  return choice_ok;
+}
+
+static std::string get_human_readable_timestamp(uint64_t ts);
+static std::string get_human_readable_timespan(std::chrono::seconds seconds);
+
+void simple_wallet::list_mms_messages(const std::vector<mms::message> &messages)
+{
+  success_msg_writer() << boost::format("%4s %-4s %-30s %-21s %7s %-15s %-40s") % tr("Id") % tr("I/O") % tr("Coalition Member")
+	  % tr("Message Type") % tr("Height") % tr("Message State") % tr("Since");
+  mms::message_store& ms = m_wallet->get_message_store();
+  uint64_t now = time(NULL);
+  for (size_t i = 0; i < messages.size(); ++i)
+  {
+    const mms::message &m = messages[i];
+    const mms::coalition_member &member = ms.get_member(m.member_index);
+    bool highlight = (m.state == mms::message_state::ready_to_send) || (m.state == mms::message_state::waiting);
+    message_writer(m.direction == mms::message_direction::out ? console_color_green : console_color_magenta, highlight) <<
+	    boost::format("%4s %-4s %-30s %-21s %7s %-15s %-40s") %
+	    m.id %
+	    ms.message_direction_to_string(m.direction) %
+	    ms.member_to_string(member, 30) %
+	    ms.message_type_to_string(m.type) %
+	    m.wallet_height %
+	    ms.message_state_to_string(m.state) %
+	    (get_human_readable_timestamp(m.modified) + ", " + get_human_readable_timespan(std::chrono::seconds(now - m.modified)) + tr(" ago"));
+  }
+}
+
+void simple_wallet::show_message(const mms::message &m)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  const mms::coalition_member &member = ms.get_member(m.member_index);
+  bool display_content;
+  switch (m.type)
+  {
+  case mms::message_type::key_set:
+  case mms::message_type::finalizing_key_set:
+  case mms::message_type::note:
+    display_content = true;
+    break;
+  default:
+    display_content = false;
+  }
+  uint64_t now = time(NULL);
+  success_msg_writer() << "";
+  success_msg_writer() << tr("Message ") << m.id;
+  success_msg_writer() << tr("In/out: ") << ms.message_direction_to_string(m.direction);
+  success_msg_writer() << tr("Type: ") << ms.message_type_to_string(m.type);
+  success_msg_writer() << tr("State: ") << boost::format(tr("%s since %s, %s ago")) %
+	  ms.message_state_to_string(m.state) % get_human_readable_timestamp(m.modified) % get_human_readable_timespan(std::chrono::seconds(now - m.modified));
+  if (m.sent == 0)
+  {
+    success_msg_writer() << tr("Sent: Never");
+  }
+  else
+  {
+    success_msg_writer() << boost::format(tr("Sent: %s, %s ago")) %
+	    get_human_readable_timestamp(m.sent) % get_human_readable_timespan(std::chrono::seconds(now - m.sent));
+  }
+  success_msg_writer() << tr("Member: ") << ms.member_to_string(member, 100);
+  success_msg_writer() << tr("Content size: ") << m.content.length() << tr(" bytes");
+  success_msg_writer() << tr("Content: ") << (display_content ? m.content : tr("(binary data)"));
+
+  if (m.type == mms::message_type::note)
+  {
+    // Showing a note and read its text is "processing" it: Set the state accordingly
+    // which will also delete it from Bitmessage as a side effect
+    // (Without this little "twist" it would never change the state, and never get deleted)
+    ms.set_message_processed_or_sent(m.id);
+  }
+}
+
+void simple_wallet::ask_send_all_ready_messages()
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  std::vector<mms::message> ready_messages;
+  const std::vector<mms::message> &messages = ms.get_all_messages();
+  for (size_t i = 0; i < messages.size(); ++i)
+  {
+    const mms::message &m = messages[i];
+    if (m.state == mms::message_state::ready_to_send)
+    {
+      ready_messages.push_back(m);
+    }
+  }
+  if (ready_messages.size() != 0)
+  {
+    list_mms_messages(ready_messages);
+    bool send = ms.get_auto_send();
+    if (!send)
+    {
+      send = user_confirms(tr("Send these messages now?"));
+    }
+    if (send)
+    {
+      mms::multisig_wallet_state state = get_multisig_wallet_state();
+      for (size_t i = 0; i < ready_messages.size(); ++i)
+      {
+	ms.send_message(state, ready_messages[i].id);
+	ms.set_message_processed_or_sent(ready_messages[i].id);
+      }
+      success_msg_writer() << tr("Sent.");
+    }
+  }
+}
+
+bool simple_wallet::get_message_from_arg(const std::string &arg, mms::message &m)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  bool valid_id = false;
+  uint32_t id;
+  try
+  {
+    id = (uint32_t)boost::lexical_cast<uint32_t>(arg);
+    valid_id = ms.get_message_by_id(id, m);
+  }
+  catch (const boost::bad_lexical_cast &)
+  {
+  }
+  if (!valid_id)
+  {
+    fail_msg_writer() << tr("Invalid message id");
+  }
+  return valid_id;
+}
+
+void simple_wallet::mms_init(const std::vector<std::string> &args)
+{
+  // mms init <threshold>/<coalition_size> <own_label> <own_transport_address>
+  // Example: mms init 2/3 rbrunner BM-2cUVEbbb3H6ojddYQziK3RafJ5GPcFQv7e
+  // For now, assume we still have the original Monero address available, before "make_multisig"
+  if (args.size() != 4)
+  {
+    fail_msg_writer() << tr("usage: mms init <threshold>/<coalition_size> <own_label> <own_transport_address>");
+    return;
+  }
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (ms.get_active())
+  {
+    if (!user_confirms(tr("The MMS is already initialized. Re-initialize by deleting all member info and messages?")))
+    {
+      return;
+    }
+  }
+  uint32_t threshold;
+  uint32_t coalition_size;
+  const std::string &mn = args[1];
+  std::vector<std::string> numbers;
+  boost::split(numbers, mn, boost::is_any_of("/"));
+  bool mn_ok = (numbers.size() == 2)
+               && get_number_from_arg(numbers[0], threshold, 1, 100)
+               && get_number_from_arg(numbers[1], coalition_size, 2, 100);
+  if (mn_ok)
+  {
+    mn_ok = (threshold == coalition_size) || (threshold == (coalition_size -1));
+    // Fully general cases like 3/5 not yet supported
+  }
+  if (!mn_ok)
+  {
+    fail_msg_writer() << tr("Error in threshold and/or coalition size");
+    return;
+  }
+  ms.init(get_multisig_wallet_state(), args[2], args[3], coalition_size, threshold);
+}
+
+void simple_wallet::mms_info(const std::vector<std::string> &args)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  success_msg_writer() << boost::format("The MMS is active for %s/%s multisig.")
+	  % ms.get_threshold() % ms.get_coalition_size();
+}
+
+void simple_wallet::mms_member(const std::vector<std::string> &args)
+// mms 0:member [1:<number> <2:label> [3:<transport_address> [4:<wownero_address>]]]
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  const std::vector<mms::coalition_member> &members = ms.get_all_members();
+  if (args.size() == 1)
+  {
+    // Without further parameters list all defined members
+    success_msg_writer() << boost::format("%2s %-20s %-s") % tr("#") % tr("Label") % tr("Transport Address");
+    success_msg_writer() << boost::format("%2s %-20s %-s") % "" % "" % tr("Wownero Address");
+    for (size_t i = 0; i < members.size(); ++i)
+    {
+      const mms::coalition_member &member = members[i];
+      std::string label = member.label.empty() ? tr("<not set>") : member.label;
+      std::string monero_address;
+      if (member.monero_address_known)
+      {
+	monero_address = get_account_address_as_str(m_wallet->nettype(), false, member.monero_address);
+      }
+      else
+      {
+	monero_address = tr("<not set>");
+      }
+      std::string transport_address = member.transport_address.empty() ? tr("<not set>") : member.transport_address;
+      success_msg_writer() << boost::format("%2s %-20s %-s") % (i + 1) % label % transport_address;
+      success_msg_writer() << boost::format("%2s %-20s %-s") % "" % "" % monero_address;
+      success_msg_writer() << "";
+    }
+    return;
+  }
+
+  uint32_t index;
+  bool index_valid = get_number_from_arg(args[1], index, 1, ms.get_coalition_size());
+  if (index_valid)
+  {
+    index--;
+  }
+  else
+  {
+    fail_msg_writer() << tr("Invalid coalition member number ") + args[1];
+    return;
+  }
+  if (args.size() < 3)
+  {
+    fail_msg_writer() << tr("mms member [<number> <label> [<transport_address> [<wownero_address>]]]");
+    return;
+  }
+
+  boost::optional<string> label = args[2];
+  boost::optional<string> transport_address;
+  if (args.size() >= 4)
+  {
+    transport_address = args[3];
+  }
+  boost::optional<cryptonote::account_public_address> monero_address;
+  mms::multisig_wallet_state state = get_multisig_wallet_state();
+  if (args.size() >= 5)
+  {
+    cryptonote::address_parse_info info;
+    bool ok = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), args[4], oa_prompter);
+    if (!ok)
+    {
+      fail_msg_writer() << tr("Invalid Wownero address");
+      return;
+    }
+    monero_address = info.address;
+    const std::vector<mms::message> &messages = ms.get_all_messages();
+    if ((messages.size() > 0) || state.multisig)
+    {
+      fail_msg_writer() << tr("Wallet state does not allow changing Wownero addresses anymore");
+      return;
+    }
+  }
+  ms.set_member(state, index, label, transport_address, monero_address);
+}
+
+void simple_wallet::mms_list(const std::vector<std::string> &args)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("Usage: mms list");
+    return;
+  }
+  LOCK_IDLE_SCOPE();
+  const std::vector<mms::message> &messages = ms.get_all_messages();
+  list_mms_messages(messages);
+}
+
+void simple_wallet::mms_next(const std::vector<std::string> &args)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  if ((args.size() > 2) || ((args.size() == 2) && (args[1] != "sync")))
+  {
+    fail_msg_writer() << tr("Usage: mms next [sync]");
+    return;
+  }
+  if (!ms.member_info_complete())
+  {
+    fail_msg_writer() << tr("Member info is not yet complete");
+    return;
+  }
+  bool avail = false;
+  std::vector<mms::processing_data> data_list;
+  bool force_sync = false;
+  uint32_t choice = 0;
+  {
+    LOCK_IDLE_SCOPE();
+    if ((args.size() > 1) && (args[1] == "sync"))
+    {
+      // Force the MMS to process any waiting sync info although on its own it would just ignore
+      // those messages because no need to process them can be seen
+      force_sync = true;
+    }
+    string wait_reason;
+    {
+      avail = ms.get_processable_messages(get_multisig_wallet_state(), force_sync, data_list, wait_reason);
+    }
+    if (avail)
+    {
+      avail = choose_mms_processing(data_list, choice);
+    }
+    else if (!wait_reason.empty())
+    {
+      success_msg_writer() << tr("No next step: ") << wait_reason;
+    }
+  }
+  if (avail)
+  {
+    mms::processing_data data = data_list[choice];
+    m_command_successful = false;
+    switch(data.processing)
+    {
+    case mms::message_processing::prepare_multisig:
+      success_msg_writer() << tr("prepare_multisig");
+      m_called_by_mms = true;
+      prepare_multisig(std::vector<std::string>());
+      break;
+
+    case mms::message_processing::make_multisig:
+    {
+      success_msg_writer() << tr("make_multisig");
+      uint32_t number_of_key_sets = data.message_ids.size();
+      std::vector<std::string> sig_args(number_of_key_sets + 1);
+      sig_args[0] = std::to_string(ms.get_threshold());
+      for (size_t i = 0; i < number_of_key_sets; ++i)
+      {
+	mms::message m = ms.get_message_by_id(data.message_ids[i]);
+	sig_args[i+1] = m.content;
+      }
+      m_called_by_mms = true;
+      make_multisig(sig_args);
+      break;
+    }
+
+    case mms::message_processing::finalize_multisig:
+    {
+      success_msg_writer() << tr("finalize_multisig");
+      uint32_t number_of_key_sets = data.message_ids.size();
+      // Other than "make_multisig" only the key sets as parameters, no threshold
+      std::vector<std::string> sig_args(number_of_key_sets);
+      for (size_t i = 0; i < number_of_key_sets; ++i)
+      {
+	mms::message m = ms.get_message_by_id(data.message_ids[i]);
+	sig_args[i] = m.content;
+      }
+      m_called_by_mms = true;
+      finalize_multisig(sig_args);
+      break;
+    }
+
+    case mms::message_processing::create_sync_data:
+    {
+      success_msg_writer() << tr("export_multisig_info");
+      std::vector<std::string> export_args;
+      export_args.push_back("MMS");  // dummy filename
+      m_called_by_mms = true;
+      export_multisig(export_args);
+      break;
+    }
+
+    case mms::message_processing::process_sync_data:
+    {
+      success_msg_writer() << tr("import_multisig_info");
+      std::vector<std::string> import_args;
+      for (size_t i = 0; i < data.message_ids.size(); ++i)
+      {
+	mms::message m = ms.get_message_by_id(data.message_ids[i]);
+	import_args.push_back(m.content);
+      }
+      m_called_by_mms = true;
+      import_multisig(import_args);
+      break;
+    }
+
+    case mms::message_processing::sign_tx:
+    {
+      success_msg_writer() << tr("sign_multisig");
+      std::vector<std::string> sign_args;
+      mms::message m = ms.get_message_by_id(data.message_ids[0]);
+      sign_args.push_back(m.content);
+      m_called_by_mms = true;
+      sign_multisig(sign_args);
+      break;
+    }
+
+    case mms::message_processing::submit_tx:
+    {
+      success_msg_writer() << tr("submit_multisig");
+      std::vector<std::string> submit_args;
+      mms::message m = ms.get_message_by_id(data.message_ids[0]);
+      submit_args.push_back(m.content);
+      m_called_by_mms = true;
+      submit_multisig(submit_args);
+      break;
+    }
+
+    case mms::message_processing::send_tx:
+    {
+      success_msg_writer() << tr("send tx");
+      mms::message m = ms.get_message_by_id(data.message_ids[0]);
+      ms.add_message(get_multisig_wallet_state(), data.receiving_member_index, m.type, mms::message_direction::out,
+		     m.content);
+      m_command_successful = true;
+      break;
+    }
+
+    default:
+      message_writer() << tr("Nothing ready to process");
+      break;
+    }
+
+    if (m_command_successful) {
+      {
+        LOCK_IDLE_SCOPE();
+        ms.set_messages_processed(data);
+        ask_send_all_ready_messages();
+      }
+    }
+  }
+}
+
+void simple_wallet::mms_sync(const std::vector<std::string> &args)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("Usage: mms sync");
+    return;
+  }
+  // Force the start of a new sync round, for exceptional cases where something went wrong
+  // Can e.g. solve the problem "This signature was made with stale data" after trying to
+  // create 2 transactions in a row somehow
+  // Code is identical to the code for 'message_processing::create_sync_data'
+  success_msg_writer() << tr("export_multisig_info");
+  std::vector<std::string> export_args;
+  export_args.push_back("MMS");  // dummy filename
+  m_called_by_mms = true;
+  export_multisig(export_args);
+  ask_send_all_ready_messages();
+}
+
+void simple_wallet::mms_transfer(const std::vector<std::string> &args)
+{
+  // It's too complicated to check any arguments here, just let 'transfer' do the whole job
+  std::vector<std::string> transfer_args = args;
+  transfer_args.erase(transfer_args.begin());
+  m_called_by_mms = true;
+  transfer_new(transfer_args);
+}
+
+void simple_wallet::mms_delete(const std::vector<std::string> &args)
+{
+  if (args.size() != 2)
+  {
+    fail_msg_writer() << tr("Usage: mms delete <message_id> | all");
+    return;
+  }
+  LOCK_IDLE_SCOPE();
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (args[1] == "all")
+  {
+    if (user_confirms(tr("Delete all messages?")))
+    {
+      ms.delete_all_messages();
+    }
+  }
+  else
+  {
+    mms::message m;
+    bool valid_id = get_message_from_arg(args[1], m);
+    if (valid_id)
+    {
+      // For the moment, just delete, even if unsent / unprocessed: This is CLI, assume people know what they do
+      ms.delete_message(m.id);
+    }
+  }
+}
+
+void simple_wallet::mms_send(const std::vector<std::string> &args)
+{
+  if (args.size() == 1)
+  {
+    ask_send_all_ready_messages();
+    return;
+  }
+  else if (args.size() != 2)
+  {
+    fail_msg_writer() << tr("Usage: mms send [<message_id>]");
+    return;
+  }
+  LOCK_IDLE_SCOPE();
+  mms::message_store& ms = m_wallet->get_message_store();
+  mms::message m;
+  bool valid_id = get_message_from_arg(args[1], m);
+  if (valid_id)
+  {
+    ms.send_message(get_multisig_wallet_state(), m.id);
+  }
+}
+
+void simple_wallet::mms_receive(const std::vector<std::string> &args)
+{
+  std::vector<mms::message> new_messages;
+  LOCK_IDLE_SCOPE();
+  mms::message_store& ms = m_wallet->get_message_store();
+  bool avail = ms.check_for_messages(get_multisig_wallet_state(), new_messages);
+  if (avail)
+  {
+    list_mms_messages(new_messages);
+  }
+}
+
+void simple_wallet::mms_note(const std::vector<std::string> &args)
+{
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (args.size() == 1)
+  {
+    LOCK_IDLE_SCOPE();
+    const std::vector<mms::message> &messages = ms.get_all_messages();
+    for (size_t i = 0; i < messages.size(); ++i)
+    {
+      const mms::message &m = messages[i];
+      if ((m.type == mms::message_type::note) && (m.state == mms::message_state::waiting))
+      {
+	show_message(m);
+      }
+    }
+    return;
+  }
+  if (args.size() < 3)
+  {
+    fail_msg_writer() << tr("Usage: mms note [<label> <text>]");
+    return;
+  }
+  uint32_t member_index;
+  bool found = ms.get_member_index_by_label(args[1], member_index);
+  if (!found)
+  {
+    fail_msg_writer() << tr("No coalition member found with label ") << args[1];
+    return;
+  }
+  std::string note = "";
+  for (size_t n = 2; n < args.size(); ++n)
+  {
+    if (n > 2)
+    {
+      note += " ";
+    }
+    note += args[n];
+  }
+  LOCK_IDLE_SCOPE();
+  ms.add_message(get_multisig_wallet_state(), member_index, mms::message_type::note,
+		 mms::message_direction::out, note);
+  ask_send_all_ready_messages();
+}
+
+void simple_wallet::mms_show(const std::vector<std::string> &args)
+{
+  if (args.size() != 2)
+  {
+    fail_msg_writer() << tr("Usage: mms show <message_id>");
+    return;
+  }
+  LOCK_IDLE_SCOPE();
+  mms::message_store& ms = m_wallet->get_message_store();
+  mms::message m;
+  bool valid_id = get_message_from_arg(args[1], m);
+  if (valid_id)
+  {
+    show_message(m);
+  }
+}
+
+void simple_wallet::mms_set(const std::vector<std::string> &args)
+{
+  bool set = args.size() == 3;
+  bool query = args.size() == 2;
+  if (!set && !query)
+  {
+    fail_msg_writer() << tr("Usage: mms set <option_name> [<option_value>]");
+    return;
+  }
+  mms::message_store& ms = m_wallet->get_message_store();
+  if (args[1] == "auto-send")
+  {
+    if (set)
+    {
+      bool result;
+      bool ok = parse_bool(args[2], result);
+      if (ok)
+      {
+	ms.set_auto_send(result);
+      }
+      else
+      {
+	fail_msg_writer() << tr("Wrong option value");
+      }
+    }
+    else
+    {
+      success_msg_writer() << (ms.get_auto_send() ? tr("Auto-send is on") : tr("Auto-send is off"));
+    }
+  }
+  else
+  {
+    fail_msg_writer() << tr("Unknown option");
+  }
+}
+
+void simple_wallet::mms_help(const std::vector<std::string> &args)
+{
+  if (args.size() != 2)
+  {
+    fail_msg_writer() << tr("Usage: mms help <subcommand>");
+    return;
+  }
+  std::vector<std::string> help_args;
+  help_args.push_back("mms");
+  help_args.push_back(args[1]);
+  help_advanced(help_args);
+}
+
+bool simple_wallet::mms(const std::vector<std::string> &args)
+{
+  try
+  {
+    mms::message_store& ms = m_wallet->get_message_store();
+    if (args.size() == 0)
+    {
+      if (ms.get_active())
+      {
+	mms_info(args);
+      }
+      else
+      {
+	success_msg_writer() << tr("The MMS is not active.");
+      }
+    }
+    else if (args[0] == "init")
+    {
+      mms_init(args);
+    }
+    else if (!ms.get_active())
+    {
+      fail_msg_writer() << tr("The MMS is not active. Activate using the \"mms init\" command");
+    }
+    else if (args[0] == "info")
+    {
+      mms_info(args);
+    }
+    else if (args[0] == "member")
+    {
+      mms_member(args);
+    }
+    else if (args[0] == "list")
+    {
+      mms_list(args);
+    }
+    else if (args[0] == "next")
+    {
+      mms_next(args);
+    }
+    else if (args[0] == "sync")
+    {
+      mms_sync(args);
+    }
+    else if (args[0] == "transfer")
+    {
+      mms_transfer(args);
+    }
+    else if (args[0] == "delete")
+    {
+      mms_delete(args);
+    }
+    else if (args[0] == "send")
+    {
+      mms_send(args);
+    }
+    else if (args[0] == "receive")
+    {
+      mms_receive(args);
+    }
+    else if (args[0] == "note")
+    {
+      mms_note(args);
+    }
+    else if (args[0] == "show")
+    {
+      mms_show(args);
+    }
+    else if (args[0] == "set")
+    {
+      mms_set(args);
+    }
+    else if (args[0] == "help")
+    {
+      mms_help(args);
+    }
+    else
+    {
+      fail_msg_writer() << tr("Invalid MMS subcommand");
+    }
+  }
+  catch (const tools::error::no_connection_to_daemon &e)
+  {
+    fail_msg_writer() << tr("Error in MMS command: ") << e.what() << " " << e.request();
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Error in MMS command: ") << e.what();
+    return true;
+  }
+  return true;
+}
+// End MMS ------------------------------------------------------------------------------------------------
 
 bool simple_wallet::print_ring(const std::vector<std::string> &args)
 {
@@ -1611,12 +2523,12 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
 
 bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  int priority = 0;
+  uint32_t priority = 0;
   try
   {
     if (strchr(args[1].c_str(), '-'))
     {
-      fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4 ");
+      fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
       return true;
     }
     if (args[1] == "0")
@@ -1625,11 +2537,23 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
     }
     else
     {
-      priority = boost::lexical_cast<int>(args[1]);
-      if (priority < 1 || priority > 4)
+      bool found = false;
+      for (size_t n = 0; n < allowed_priority_strings.size(); ++n)
       {
-        fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4");
-        return true;
+        if (allowed_priority_strings[n] == args[1])
+        {
+          found = true;
+          priority = n;
+        }
+      }
+      if (!found)
+      {
+        priority = boost::lexical_cast<int>(args[1]);
+        if (priority < 1 || priority > 4)
+        {
+          fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
+          return true;
+        }
       }
     }
  
@@ -1643,7 +2567,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
   }
   catch(const boost::bad_lexical_cast &)
   {
-    fail_msg_writer() << tr("priority must be 0, 1, 2, 3, or 4");
+    fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
     return true;
   }
   catch(...)
@@ -1688,13 +2612,13 @@ bool simple_wallet::set_refresh_type(const std::vector<std::string> &args/* = st
   return true;
 }
 
-bool simple_wallet::set_confirm_missing_payment_id(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::set_confirm_subaddress(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
     parse_bool_and_use(args[1], [&](bool r) {
-      m_wallet->confirm_missing_payment_id(r);
+      m_wallet->confirm_subaddress(r);
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     });
   }
@@ -1931,10 +2855,10 @@ bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<st
   "Commands:\n" <<
   tr("  \"balance\" - Show balance.\n") <<
   tr("  \"address\" - Show wallet's address.\n") <<
-  tr("  \"integrated_address\" - Show receiving address with an integrated payment ID.\n") <<
-  tr("  \"transfer [address|integrated_address] [amount]\" - Send WOW to an address.\n") <<
+  tr("  \"address new [optional note]\" - Create new sub-address with optional note, spaces are allowed.\n") <<
+  tr("  \"address all\" - Show all sub-addresses.\n") <<
+  tr("  \"transfer [address] [amount]\" - Send WOW to an address.\n") <<
   tr("  \"show_transfers [in|out|pending|failed|pool]\" - Show transactions.\n") <<
-  tr("  \"payments [payment ID]\" - Show transaction of a given payment ID.\n") <<
   tr("  \"sweep_all [address]\" - Send whole balance to another wallet.\n") <<
   tr("  \"seed\" - Show secret 25 words that can be used to recover this wallet.\n") <<
   tr("  \"refresh\" - Synchronize wallet with the Wownero network.\n") <<
@@ -1953,6 +2877,12 @@ bool simple_wallet::help_advanced(const std::vector<std::string> &args/* = std::
   if(args.empty())
   {
     success_msg_writer() << get_commands_str();
+  }
+  else if ((args.size() == 2) && (args.front() == "mms"))
+  {
+    // Little hack to be able to do "help mms <subcommand>"
+    std::vector<std::string> mms_args(1, args.front() + " " + args.back());
+    success_msg_writer() << get_command_usage(mms_args);
   }
   else
   {
@@ -2064,13 +2994,9 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::print_address, this, _1),
                            tr("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed>]"),
                            tr("If no arguments are specified or <index> is specified, the wallet shows the default or specified address. If \"all\" is specified, the wallet shows all the existing addresses in the currently selected account. If \"new \" is specified, the wallet creates a new address with the provided label text (which can be empty). If \"label\" is specified, the wallet sets the label of the address specified by <index> to the provided label text."));
-  m_cmd_binder.set_handler("integrated_address",
-                           boost::bind(&simple_wallet::print_integrated_address, this, _1),
-                           tr("integrated_address [<payment_id> | <address>]"),
-                           tr("Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book",
                            boost::bind(&simple_wallet::address_book, this, _1),
-                           tr("address_book [(add ((<address> [pid <id>])|<integrated address>) [<description possibly with whitespaces>])|(delete <index>)]"),
+                           tr("address_book [(add ((<address> [pid <id>])) [<description possibly with whitespaces>])|(delete <index>)]"),
                            tr("Print all entries in the address book, optionally adding/deleting an entry to/from it."));
   m_cmd_binder.set_handler("save",
                            boost::bind(&simple_wallet::save, this, _1),
@@ -2182,7 +3108,7 @@ simple_wallet::simple_wallet()
                            tr("Show the unspent outputs of a specified address within an optional amount range."));
   m_cmd_binder.set_handler("rescan_bc",
                            boost::bind(&simple_wallet::rescan_blockchain, this, _1),
-                           tr("Rescan the blockchain from scratch."));
+                           tr("Rescan the blockchain from scratch, losing any information which can not be recovered from the blockchain itself."));
   m_cmd_binder.set_handler("set_tx_note",
                            boost::bind(&simple_wallet::set_tx_note, this, _1),
                            tr("set_tx_note <txid> [free text note]"),
@@ -2267,6 +3193,67 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::export_raw_multisig, this, _1),
                            tr("export_raw_multisig_tx <filename>"),
                            tr("Export a signed multisig transaction to a file"));
+  m_cmd_binder.set_handler("mms",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms [<subcommand> [<subcommand_parameters>]]"),
+                           tr("Interface with the MMS (Multisig Messaging System)\n"
+			      "subcommand is one of: init, info, member, list, next, sync, transfer, delete, send, receive, note, show, set, help\n"
+			      "Get help about a subcommand with: help_advanced mms <subcommand>, or: mms help <subcommand>"));
+  m_cmd_binder.set_handler("mms init",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms init <threshold>/<coalition_size> <own_label> <own_transport_address>"),
+                           tr("Initialize and configure the MMS"));
+  m_cmd_binder.set_handler("mms info",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms info"),
+                           tr("Display current MMS configuration"));
+  m_cmd_binder.set_handler("mms member",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms member [<number> <label> [<transport_address> [<wownero_address>]]]"),
+                           tr("Set or modify coalition member info (single-word label, transport address, Wownero address), or list all members"));
+  m_cmd_binder.set_handler("mms list",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms list"),
+                           tr("List all messages"));
+  m_cmd_binder.set_handler("mms next",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms next [sync]"),
+                           tr("Evaluate the next possible multisig-related action(s) according to wallet state, and execute or offer for choice\n"
+			      "By using 'sync' processing of waiting messages with multisig sync info can be forced regardless of wallet state"));
+  m_cmd_binder.set_handler("mms sync",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms sync"),
+                           tr("Force generation of multisig sync info regardless of wallet state, to recover from special situations like \"stale data\" errors"));
+  m_cmd_binder.set_handler("mms transfer",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms transfer <transfer_command_arguments>"),
+                           tr("Initiate transfer with MMS support; arguments identical to normal 'transfer' command arguments, for info see there"));
+  m_cmd_binder.set_handler("mms delete",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms delete <message id> | all"),
+                           tr("Delete a single message by giving its id, or delete all messages by using 'all'"));
+  m_cmd_binder.set_handler("mms send",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms send [<message id>]"),
+                           tr("Send a single message by giving its id, or send all waiting messages"));
+  m_cmd_binder.set_handler("mms receive",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms receive"),
+                           tr("Check right away for new messages to receive"));
+  m_cmd_binder.set_handler("mms note",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms note [<label> <text>]"),
+                           tr("Send a one-line message to a coalition member, identified by its label, or show any waiting unread notes"));
+  m_cmd_binder.set_handler("mms show",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms show <message_id>"),
+                           tr("Show detailed info about a single message"));
+  m_cmd_binder.set_handler("mms set",
+                           boost::bind(&simple_wallet::mms, this, _1),
+                           tr("mms set <option_name> [<option_value>]"),
+                           tr("Available options:\n "
+                                  "auto-send <1|0>\n "
+                                  "  Whether to automatically send newly generated messages right away.\n "));
   m_cmd_binder.set_handler("print_ring",
                            boost::bind(&simple_wallet::print_ring, this, _1),
                            tr("print_ring <key_image> | <txid>"),
@@ -2312,6 +3299,10 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     std::string seed_language = m_wallet->get_seed_language();
     if (m_use_english_language_names)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
+    std::string priority_string = "invalid";
+    uint32_t priority = m_wallet->get_default_priority();
+    if (priority < allowed_priority_strings.size())
+      priority_string = allowed_priority_strings[priority];
     success_msg_writer() << "seed = " << seed_language;
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
@@ -2319,7 +3310,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     success_msg_writer() << "priority = " << m_wallet->get_default_priority();
-    success_msg_writer() << "confirm-missing-payment-id = " << m_wallet->confirm_missing_payment_id();
+    success_msg_writer() << "confirm-subaddress = " << m_wallet->confirm_subaddress();
     success_msg_writer() << "ask-password = " << m_wallet->ask_password();
     success_msg_writer() << "unit = " << cryptonote::get_unit(cryptonote::get_default_decimal_point());
     success_msg_writer() << "min-outputs-count = " << m_wallet->get_min_output_count();
@@ -2373,7 +3364,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
     CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
-    CHECK_SIMPLE_VARIABLE("confirm-missing-payment-id", set_confirm_missing_payment_id, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("confirm-subaddress", set_confirm_subaddress, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("ask-password", set_ask_password, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("unit", set_unit, tr("wownero, millinero, micronero, nanonero, piconero"));
     CHECK_SIMPLE_VARIABLE("min-outputs-count", set_min_output_count, tr("unsigned integer"));
@@ -2631,6 +3622,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           m_recovery_key = cryptonote::decrypt_key(m_recovery_key, seed_pass);
       }
     }
+    epee::wipeable_string password;
     if (!m_generate_from_view_key.empty())
     {
       m_wallet_file = m_generate_from_view_key;
@@ -2683,8 +3675,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
 
-      bool r = new_wallet(vm, info.address, boost::none, viewkey);
+      auto r = new_wallet(vm, info.address, boost::none, viewkey);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
     }
     else if (!m_generate_from_spend_key.empty())
     {
@@ -2702,8 +3695,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("failed to parse spend key secret key");
         return false;
       }
-      bool r = new_wallet(vm, m_recovery_key, true, false, "");
+      auto r = new_wallet(vm, m_recovery_key, true, false, "");
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
     }
     else if (!m_generate_from_keys.empty())
     {
@@ -2780,8 +3774,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("view key does not match standard address");
         return false;
       }
-      bool r = new_wallet(vm, info.address, spendkey, viewkey);
+      auto r = new_wallet(vm, info.address, spendkey, viewkey);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
     }
     
     // Asks user for all the data required to merge secret keys from multisig wallets into one master wallet, which then gets full control of the multisig wallet. The resulting wallet will be the same as any other regular wallet.
@@ -2914,8 +3909,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       
       // create wallet
-      bool r = new_wallet(vm, info.address, spendkey, viewkey);
+      auto r = new_wallet(vm, info.address, spendkey, viewkey);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
     }
     
     else if (!m_generate_from_json.empty())
@@ -2937,8 +3933,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       m_wallet_file = m_generate_from_device;
       // create wallet
-      bool r = new_wallet(vm, "Ledger");
+      auto r = new_wallet(vm, "Ledger");
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
       // if no block_height is specified, assume its a new account and start it "now"
       if(m_wallet->get_refresh_from_block_height() == 0) {
         {
@@ -2963,12 +3960,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       m_wallet_file = m_generate_new;
-      bool r;
+      boost::optional<epee::wipeable_string> r;
       if (m_restore_multisig_wallet)
         r = new_wallet(vm, multisig_keys, old_language);
       else
         r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      password = *r;
     }
 
     if (m_restoring && m_generate_from_json.empty() && m_generate_from_device.empty())
@@ -3050,6 +4048,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       m_wallet->set_refresh_from_block_height(m_restore_height);
     }
+    m_wallet->rewrite(m_wallet_file, password);
   }
   else
   {
@@ -3217,15 +4216,16 @@ boost::optional<tools::password_container> simple_wallet::get_and_verify_passwor
   return pwd_container;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
+boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   const crypto::secret_key& recovery_key, bool recover, bool two_random, const std::string &old_language)
 {
   auto rc = tools::wallet2::make_new(vm, password_prompter);
   m_wallet = std::move(rc.first);
   if (!m_wallet)
   {
-    return false;
+    return {};
   }
+  epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
   {
@@ -3261,7 +4261,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     }
     mnemonic_language = get_mnemonic_language();
     if (mnemonic_language.empty())
-      return false;
+      return {};
   }
 
   m_wallet->set_seed_language(mnemonic_language);
@@ -3279,7 +4279,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
-    return false;
+    return {};
   }
 
   // convert rng value to electrum-style word list
@@ -3305,10 +4305,10 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   }
   success_msg_writer() << "**********************************************************************";
 
-  return true;
+  return std::move(password);
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
+boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   const cryptonote::account_public_address& address, const boost::optional<crypto::secret_key>& spendkey,
   const crypto::secret_key& viewkey)
 {
@@ -3316,8 +4316,9 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   m_wallet = std::move(rc.first);
   if (!m_wallet)
   {
-    return false;
+    return {};
   }
+  epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
   {
@@ -3347,22 +4348,23 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
-    return false;
+    return {};
   }
 
 
-  return true;
+  return std::move(password);
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
+boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
                                const std::string &device_name) {
   auto rc = tools::wallet2::make_new(vm, password_prompter);
   m_wallet = std::move(rc.first);
   if (!m_wallet)
   {
-    return false;
+    return {};
   }
+  epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
   {
@@ -3383,21 +4385,22 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
-    return false;
+    return {};
   }
 
-  return true;
+  return std::move(password);
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
+boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     const std::string &multisig_keys, const std::string &old_language)
 {
   auto rc = tools::wallet2::make_new(vm, password_prompter);
   m_wallet = std::move(rc.first);
   if (!m_wallet)
   {
-    return false;
+    return {};
   }
+  epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
   {
@@ -3427,7 +4430,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     if (!m_wallet->multisig(&ready, &threshold, &total) || !ready)
     {
       fail_msg_writer() << tr("failed to generate new mutlisig wallet");
-      return false;
+      return {};
     }
     message_writer(console_color_white, true) << boost::format(tr("Generated new %u/%u multisig wallet: ")) % threshold % total
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
@@ -3435,10 +4438,10 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   catch (const std::exception& e)
   {
     fail_msg_writer() << tr("failed to generate new wallet: ") << e.what();
-    return false;
+    return {};
   }
 
-  return true;
+  return std::move(password);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
@@ -3470,6 +4473,8 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<
       prefix << ": " << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    message_writer(console_color_yellow, true) << "\n" << tr("When receiving WOW, "
+          "create a new sub-address for each transaction with the command “address new”. \nUse “address all” to see all sub-addresses.\n");
     if (m_wallet->get_account().get_device()) {
        message_writer(console_color_white, true) << "Wallet is on device: " << m_wallet->get_account().get_device().get_name();
     }
@@ -4293,6 +5298,8 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
 bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_)
 {
 //  "transfer [index=<N1>[,<N2>,...]] [<priority>] <address> <amount> [<payment_id>]"
+  m_command_successful = false;
+  bool by_mms = called_by_mms();
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
     return true;
@@ -4346,7 +5353,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       std::string extra_nonce;
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      success_msg_writer() << tr("WARNING: Payment id is unencrypted, which might potentially compromise your privacy. An integrated address is recommended instead.\n");
+      success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
     }
     else
     {
@@ -4357,6 +5364,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         std::string extra_nonce;
         set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+        success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
       }
     }
 
@@ -4433,10 +5441,10 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     dsts.push_back(de);
   }
 
-  // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && dsts.size() > num_subaddresses)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && dsts.size() > num_subaddresses)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -4617,12 +5625,22 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     // actually commit the transactions
-    if (m_wallet->multisig())
+    if (m_wallet->multisig() && by_mms)
+    {
+      std::string ciphertext = m_wallet->save_multisig_tx(ptx_vector);
+      if (!ciphertext.empty())
+      {
+	get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::partially_signed_tx, ciphertext);
+	success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to MMS");
+	m_command_successful = true;
+      }
+    }
+    else if (m_wallet->multisig())
     {
       bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_wownero_tx");
       if (!r)
       {
-        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+	fail_msg_writer() << tr("Failed to write transaction(s) to file");
       }
       else
       {
@@ -4833,6 +5851,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       payment_id_seen = true;
+      success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
     }
     else
     {
@@ -4844,6 +5863,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
         set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
         payment_id_seen = true;
+        success_msg_writer() << tr("\nWARNING: Payment IDs will be deprecated soon. Sub-addresses are recommended instead.\n");
       }
     }
 
@@ -4882,10 +5902,10 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     payment_id_seen = true;
   }
 
-  // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -5081,10 +6101,10 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     payment_id_seen = true;
   }
 
-  // prompt if there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
+  // prompt if regular address
+  if (!payment_id_seen && m_wallet->confirm_subaddress() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("\nSending to a regular address may degrade privacy. Ask recipient for a sub-address instead. Continue anyway? (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -5971,7 +6991,7 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
   if (ts < 3600 * 24 * 30.5)
     return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
   if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 365.25))) + tr(" months");
+    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
   return tr("a long time");
 }
 //----------------------------------------------------------------------------------------------------
@@ -5991,9 +7011,9 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("usage: show_transfers [in|out|all|pending|failed] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
     return true;
   }
-
-  LOCK_IDLE_SCOPE();
   
+  LOCK_IDLE_SCOPE();
+
   // optional in/out selector
   if (local_args.size() > 0) {
     if (local_args[0] == "in" || local_args[0] == "incoming") {
@@ -6167,7 +7187,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
   auto local_args = args_;
 
   std::set<uint32_t> subaddr_indices;
-  if (local_args.size() > 0 && local_args[0].substr(0, 6) != "index=")
+  if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
   {
     if (!parse_subaddress_indices(local_args[0], subaddr_indices))
       return true;
@@ -6297,7 +7317,30 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 {
+  message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
+  message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
+  std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
+  if(!std::cin.eof())
+  {
+    if (!command_line::is_yes(confirm))
+      return true;
+  }
   return refresh_main(0, true);
+}
+//----------------------------------------------------------------------------------------------------
+void simple_wallet::check_for_messages()
+{
+  try {
+    std::vector<mms::message> new_messages;
+    bool new_message = get_message_store().check_for_messages(get_multisig_wallet_state(), new_messages);
+    if (new_message)
+    {
+      message_writer(console_color_magenta, true) << tr("MMS received new message");
+      list_mms_messages(new_messages);
+      m_cmd_binder.print_prompt();
+    }
+  }
+  catch(...) {}
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::wallet_idle_thread()
@@ -6320,6 +7363,14 @@ void simple_wallet::wallet_idle_thread()
       }
       catch(...) {}
       m_auto_refresh_refreshing = false;
+    }
+
+    // Check for new MMS messages;
+    // For simplicity auto message check is ALSO controlled by "m_auto_refresh_enabled" and has no
+    // separate thread either; thread syncing is tricky enough with only this one idle thread here
+    if (m_auto_refresh_enabled && get_message_store().get_active())
+    {
+      check_for_messages();
     }
 
     if (!m_idle_run.load(std::memory_order_relaxed))
@@ -6675,56 +7726,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_integrated_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  crypto::hash8 payment_id;
-  if (args.size() > 1)
-  {
-    fail_msg_writer() << tr("usage: integrated_address [payment ID]");
-    return true;
-  }
-  if (args.size() == 0)
-  {
-    if (m_current_subaddress_account != 0)
-    {
-      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
-      return true;
-    }
-    payment_id = crypto::rand<crypto::hash8>();
-    success_msg_writer() << tr("Random payment ID: ") << payment_id;
-    success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
-    return true;
-  }
-  if(tools::wallet2::parse_short_payment_id(args.back(), payment_id))
-  {
-    if (m_current_subaddress_account != 0)
-    {
-      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
-      return true;
-    }
-    success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->nettype());
-    return true;
-  }
-  else {
-    address_parse_info info;
-    if(get_account_address_from_str(info, m_wallet->nettype(), args.back()))
-    {
-      if (info.has_payment_id)
-      {
-        success_msg_writer() << boost::format(tr("Integrated address: %s, payment ID: %s")) %
-          get_account_address_as_str(m_wallet->nettype(), false, info.address) % epee::string_tools::pod_to_hex(info.payment_id);
-      }
-      else
-      {
-        success_msg_writer() << (info.is_subaddress ? tr("Subaddress: ") : tr("Standard address: ")) << get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address);
-      }
-      return true;
-    }
-  }
-  fail_msg_writer() << tr("failed to parse payment ID or address");
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
+
 bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if (args.size() == 0)
@@ -6732,7 +7734,7 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
   }
   else if (args.size() == 1 || (args[0] != "add" && args[0] != "delete"))
   {
-    fail_msg_writer() << tr("usage: address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)]");
+    fail_msg_writer() << tr("usage: address_book [(add (<address> [pid <long or short payment id>]) [<description possibly with whitespaces>])|(delete <index>)]");
     return true;
   }
   else if (args[0] == "add")

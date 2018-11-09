@@ -88,7 +88,6 @@ public:
     std::string errorString() const;
     bool setPassword(const std::string &password);
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const;
-    std::string integratedAddress(const std::string &payment_id) const;
     std::string secretViewKey() const;
     std::string publicViewKey() const;
     std::string secretSpendKey() const;

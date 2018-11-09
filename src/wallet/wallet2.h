@@ -58,6 +58,7 @@
 #include "wallet_errors.h"
 #include "common/password.h"
 #include "node_rpc_proxy.h"
+#include "message_store.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -454,6 +455,7 @@ namespace tools
 
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
 
+
     /*!
      * \brief  Generates a wallet or restores one.
      * \param  wallet_              Name of wallet file
@@ -593,7 +595,7 @@ namespace tools
     bool init(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
-    void stop() { m_run.store(false, std::memory_order_relaxed); }
+    void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
@@ -624,6 +626,7 @@ namespace tools
     // Subaddress scheme
     cryptonote::account_public_address get_subaddress(const cryptonote::subaddress_index& index) const;
     cryptonote::account_public_address get_address() const { return get_subaddress({0,0}); }
+    boost::optional<cryptonote::subaddress_index> get_subaddress_index(const cryptonote::account_public_address& address) const;
     crypto::public_key get_subaddress_spend_public_key(const cryptonote::subaddress_index& index) const;
     std::vector<crypto::public_key> get_subaddress_spend_public_keys(uint32_t account, uint32_t begin, uint32_t end) const;
     std::string get_subaddress_as_str(const cryptonote::subaddress_index& index) const;
@@ -851,8 +854,8 @@ namespace tools
     void set_default_priority(uint32_t p) { m_default_priority = p; }
     bool auto_refresh() const { return m_auto_refresh; }
     void auto_refresh(bool r) { m_auto_refresh = r; }
-    bool confirm_missing_payment_id() const { return m_confirm_missing_payment_id; }
-    void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
+    bool confirm_subaddress() const { return m_confirm_subaddress; }
+    void confirm_subaddress(bool always) { m_confirm_subaddress = always; }
     bool ask_password() const { return m_ask_password; }
     void ask_password(bool always) { m_ask_password = always; }
     void set_min_output_count(uint32_t count) { m_min_output_count = count; }
@@ -1076,6 +1079,10 @@ namespace tools
     bool unblackball_output(const crypto::public_key &output);
     bool is_output_blackballed(const crypto::public_key &output) const;
 
+    // MMS -------------------------------------------------------------------------------------------------
+    mms::message_store& get_message_store() { return m_message_store; };
+    mms::multisig_wallet_state get_multisig_wallet_state();
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1147,6 +1154,7 @@ namespace tools
     std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;
+    std::string m_mms_file;
     epee::net_utils::http::http_simple_client m_http_client;
     hashchain m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
@@ -1196,7 +1204,7 @@ namespace tools
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
-    bool m_confirm_missing_payment_id;
+    bool m_confirm_subaddress;
     bool m_confirm_non_default_ring_size;
     bool m_ask_password;
     uint32_t m_min_output_count;
@@ -1231,6 +1239,11 @@ namespace tools
     std::string m_ring_database;
     bool m_ring_history_saved;
     std::unique_ptr<ringdb> m_ringdb;
+
+    mms::message_store m_message_store;
+    bool m_original_keys_available;
+    cryptonote::account_public_address m_original_address;
+    crypto::secret_key m_original_view_secret_key;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 24)

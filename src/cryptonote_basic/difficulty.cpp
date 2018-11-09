@@ -256,13 +256,9 @@ namespace cryptonote {
 
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
 
-    if ( cryptonote::MAINNET && height <= DIFFICULTY_HEIGHT ){ 
+    /*if ( height <= DIFFICULTY_HEIGHT ){ 
       return static_cast<uint64_t>(DIFFICULTY_GUESS); 
-    }
-
-    if ( cryptonote::TESTNET && height <= DIFFICULTY_TESTNET_HEIGHT ){ 
-      return static_cast<uint64_t>(DIFFICULTY_TESTNET_GUESS);
-    }
+    }*/
 
     for ( int64_t i = 1; i <= N; i++ ) {  
       ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
@@ -281,14 +277,79 @@ namespace cryptonote {
       next_D = std::max(next_D,(prev_D*108)/100); 
     }
 
-    if ( cryptonote::MAINNET && next_D < DIFFICULTY_MINIMUM ) { 
+    if ( next_D < DIFFICULTY_MINIMUM ) { 
       return static_cast<uint64_t>(DIFFICULTY_MINIMUM); 
-    }
-    else if ( cryptonote::TESTNET && next_D < DIFFICULTY_TESTNET_MINIMUM ) { 
-      return static_cast<uint64_t>(DIFFICULTY_TESTNET_MINIMUM); 
     }
     else { 
       return static_cast<uint64_t>(next_D); 
     }
+  }
+
+  // LWMA-4 difficulty algorithm 
+  // Copyright (c) 2017-2018 Zawy, MIT License
+  // https://github.com/zawy12/difficulty-algorithms/issues/3
+  difficulty_type next_difficulty_v4(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t height) {
+
+   uint64_t  T = DIFFICULTY_TARGET_V2;
+   uint64_t  N = DIFFICULTY_WINDOW_V2; // N=45, 60, and 90 for T=600, 120, 60.
+   uint64_t  L(0), ST(0), next_D, prev_D, avg_D, i;
+        
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
+
+   if ( height <= DIFFICULTY_HEIGHT + 1 ) { return DIFFICULTY_GUESS;  }
+ 
+   // Safely convert out-of-sequence timestamps into > 0 solvetimes.
+   std::vector<uint64_t>TS(N+1);
+   TS[0] = timestamps[0];
+   for ( i = 1; i <= N; i++) {        
+      if ( timestamps[i]  > TS[i-1]  ) {   TS[i] = timestamps[i];  } 
+      else {  TS[i] = TS[i-1];   }
+   }
+
+   for ( i = 1; i <= N; i++) {  
+      // Temper long solvetime drops if they were preceded by 3 or 6 fast solves.
+      if ( i > 4 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-4] < (14*T)/10 ) {   ST = 2*T; }
+      else if ( i > 7 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-7] < 4*T ) {   ST = 2*T; }
+      else { // Assume normal conditions, so get ST.
+         // LWMA drops too much from long ST, so limit drops with a 5*T limit 
+         ST = std::min(5*T ,TS[i] - TS[i-1]);
+      }
+      L +=  ST * i ; 
+   } 
+   if (L < N*N*T/20 ) { L =  N*N*T/20; } 
+   avg_D = ( cumulative_difficulties[N] - cumulative_difficulties[0] )/ N;
+   
+   // Prevent round off error for small D and overflow for large D.
+   if (avg_D > 2000000*N*N*T) { 
+       next_D = (avg_D/(200*L))*(N*(N+1)*T*97);   
+   }   
+   else {    next_D = (avg_D*N*(N+1)*T*97)/(200*L);    }
+
+   prev_D =  cumulative_difficulties[N] - cumulative_difficulties[N-1] ; 
+
+   // Apply 10% jump rule.
+   if (  ( TS[N] - TS[N-1] < (2*T)/10 ) || 
+         ( TS[N] - TS[N-2] < (5*T)/10 ) ||  
+         ( TS[N] - TS[N-3] < (8*T)/10 )    )
+   {  
+       next_D = std::max( next_D, std::min( (prev_D*110)/100, (105*avg_D)/100 ) ); 
+   }
+   // Make all insignificant digits zero for easy reading.
+   i = 1000000000;
+   while (i > 1) { 
+     if ( next_D > i*100 ) { next_D = ((next_D+i/2)/i)*i; break; }
+     else { i /= 10; }
+   }
+   // Make least 3 digits equal avg of past 10 solvetimes.
+   if ( next_D > 100000 ) { 
+    next_D = ((next_D+500)/1000)*1000 + std::min(static_cast<uint64_t>(999), (TS[N]-TS[N-10])/10); 
+   }
+
+   if ( next_D < DIFFICULTY_MINIMUM ) {
+    return static_cast<uint64_t>(DIFFICULTY_MINIMUM);
+   } 
+   else { 
+    return static_cast<uint64_t>(next_D); 
+   }
   }
 }

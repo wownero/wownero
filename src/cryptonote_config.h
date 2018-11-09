@@ -48,6 +48,7 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             4
 
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2            11
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
@@ -81,12 +82,9 @@
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V2                      DIFFICULTY_WINDOW_V2 + 1 // added +1 to make N=N
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
-#define DIFFICULTY_HEIGHT                               53666 // v9 fork height
-#define DIFFICULTY_GUESS                                40000000 // difficulty at fork 40m
-#define DIFFICULTY_MINIMUM                              10000000 // minimum difficulty set to 10m
-#define DIFFICULTY_TESTNET_HEIGHT                       100
-#define DIFFICULTY_TESTNET_GUESS                        5069
-#define DIFFICULTY_TESTNET_MINIMUM                      4069
+#define DIFFICULTY_HEIGHT                               63469 // v10 fork height
+#define DIFFICULTY_GUESS                                100000069 // difficulty at fork 100m
+#define DIFFICULTY_MINIMUM                              40000069 // minimum difficulty set to 40m
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
