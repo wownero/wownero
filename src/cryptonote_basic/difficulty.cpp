@@ -295,7 +295,7 @@ namespace cryptonote {
    uint64_t  L(0), ST(0), next_D, prev_D, avg_D, i;
         
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
-   
+
    if ( height <= DIFFICULTY_HEIGHT + 1 + N ) { return DIFFICULTY_GUESS;  }
  
    // Safely convert out-of-sequence timestamps into > 0 solvetimes.
@@ -307,9 +307,9 @@ namespace cryptonote {
    }
 
    for ( i = 1; i <= N; i++) {  
-      // Ignore long solvetimes if they were preceeded by 3 or 6 fast solves.
-      if ( i > 4 && TS[i]-TS[i-1] > 4*T  && TS[i-1] - TS[i-4] < (16*T)/10 ) {   ST = 2*T; }
-      else if ( i > 7 && TS[i]-TS[i-1] > 4*T  && TS[i-1] - TS[i-7] < 4*T ) {   ST = 2*T; }
+      // Temper long solvetime drops if they were preceded by 3 or 6 fast solves.
+      if ( i > 4 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-4] < (14*T)/10 ) {   ST = 2*T; }
+      else if ( i > 7 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-7] < 4*T ) {   ST = 2*T; }
       else { // Assume normal conditions, so get ST.
          // LWMA drops too much from long ST, so limit drops with a 5*T limit 
          ST = std::min(5*T ,TS[i] - TS[i-1]);
