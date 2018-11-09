@@ -296,7 +296,7 @@ namespace cryptonote {
         
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
 
-   if ( height <= DIFFICULTY_HEIGHT + 1 + N ) { return DIFFICULTY_GUESS;  }
+   if ( height <= DIFFICULTY_HEIGHT + 1 ) { return DIFFICULTY_GUESS;  }
  
    // Safely convert out-of-sequence timestamps into > 0 solvetimes.
    std::vector<uint64_t>TS(N+1);
@@ -344,6 +344,12 @@ namespace cryptonote {
    if ( next_D > 100000 ) { 
     next_D = ((next_D+500)/1000)*1000 + std::min(static_cast<uint64_t>(999), (TS[N]-TS[N-10])/10); 
    }
-   return  next_D;
+
+   if ( next_D < DIFFICULTY_MINIMUM ) {
+    return static_cast<uint64_t>(DIFFICULTY_MINIMUM);
+   } 
+   else { 
+    return static_cast<uint64_t>(next_D); 
+   }
   }
 }
