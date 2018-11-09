@@ -93,6 +93,7 @@ static const struct {
  { 7, 1, 0, 1519605000 },
  { 8, 6969, 0, 1524214739 },
  { 9, 53666, 0, 1538689773 },
+ { 10, 63469, 0, 1541700352 },
 };
 
 static const uint64_t mainnet_hard_fork_version_1_till = ((uint64_t)(0));
@@ -1061,7 +1062,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     return next_difficulty_v2(timestamps, cumulative_difficulties, target);
   }
   else if (version == 9) {
-    return next_difficulty_v2(timestamps, cumulative_difficulties, height);
+    return next_difficulty_v3(timestamps, cumulative_difficulties, height);
   }    
   else {
     return next_difficulty_v4(timestamps, cumulative_difficulties, height);
@@ -4452,7 +4453,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "991bae8e227c5ba51767522aaea4fc7c1e54be8528793fe9301aff8f3031b7d7";
+static const char expected_block_hashes_hash[] = "e06ddfd59a891d5e63e80795d8e0494a7c1e3b01a1faa4ed91b015ecfc38c003";
 void Blockchain::load_compiled_in_block_hashes()
 {
   const bool testnet = m_nettype == TESTNET;
