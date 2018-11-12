@@ -296,7 +296,7 @@ namespace cryptonote {
         
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
 
-   if ( height <= DIFFICULTY_HEIGHT + 1 ) { return DIFFICULTY_GUESS;  }
+   if ( height >= DIFFICULTY_HEIGHT && height <= DIFFICULTY_HEIGHT + 1 ) { return DIFFICULTY_GUESS;  }
  
    // Safely convert out-of-sequence timestamps into > 0 solvetimes.
    std::vector<uint64_t>TS(N+1);
