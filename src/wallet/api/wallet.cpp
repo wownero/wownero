@@ -60,7 +60,7 @@ namespace Monero {
 
 namespace {
     // copy-pasted from simplewallet
-    static const size_t DEFAULT_MIXIN = 6;
+    static const size_t DEFAULT_MIXIN = 21;
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
     static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
@@ -74,7 +74,7 @@ namespace {
       boost::filesystem::path dir = tools::get_default_data_dir();
       // remove .bitmonero, replace with .shared-ringdb
       dir = dir.remove_filename();
-      dir /= ".shared-ringdb";
+      dir /= ".wow-shared-ringdb";
       if (nettype == cryptonote::TESTNET)
         dir /= "testnet";
       else if (nettype == cryptonote::STAGENET)
