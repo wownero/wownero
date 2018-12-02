@@ -958,7 +958,7 @@ namespace cryptonote
   {
     switch (decimal_point)
     {
-      case 12:
+      case 11:
       case 9:
       case 6:
       case 3:
@@ -981,8 +981,8 @@ namespace cryptonote
       decimal_point = default_decimal_point;
     switch (decimal_point)
     {
-      case 12:
-        return "monero";
+      case 11:
+        return "wownero";
       case 9:
         return "millinero";
       case 6:
@@ -1215,45 +1215,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata *blob)
   {
-    blobdata bd;
-    if (!blob)
-    {
-      bd = block_to_blob(b);
-      blob = &bd;
-    }
-
-    bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
-    if (!hash_result)
-      return false;
-
-    if (b.miner_tx.vin.size() == 1 && b.miner_tx.vin[0].type() == typeid(cryptonote::txin_gen))
-    {
-      const cryptonote::txin_gen &txin_gen = boost::get<cryptonote::txin_gen>(b.miner_tx.vin[0]);
-      if (txin_gen.height != 202612)
-        return true;
-    }
-
-    // EXCEPTION FOR BLOCK 202612
-    const std::string correct_blob_hash_202612 = "3a8a2b3a29b50fc86ff73dd087ea43c6f0d6b8f936c849194d5c84c737903966";
-    const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
-    crypto::hash block_blob_hash = get_blob_hash(*blob);
-
-    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
-    {
-      string_tools::hex_to_pod(existing_block_id_202612, res);
-      return true;
-    }
-
-    {
-      // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
-      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
-      {
-        LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
-        res = null_hash;
-        return false;
-      }
-    }
-    return hash_result;
+    return get_object_hash(get_block_hashing_blob(b), res);
   }
   //---------------------------------------------------------------
   bool get_block_hash(const block& b, crypto::hash& res)
