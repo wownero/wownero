@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+
+# BSD 3-Clause License
+#
+# Copyright (c) 2018, Jason Rhinelander
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the copyright holder nor the names of its
+#   contributors may be used to endorse or promote products derived from
+#   this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import requests
+
+# CONFIGURATION:
+
+# Target time 
+DIFFICULTY_TARGET = 300
+
+# Range of blocks to analyze:
+N = 20
+
+# Fork height/name pairs (purely cosmetic to indicate forks in the output)
+forks = {
+    50: 'v12',
+}
+
+# First element is the URL to fetch; the rest are keys to follow to get the current network height:
+api_height = ('http://explorer.wowne.ro:8082/api/networkinfo', 'data', 'height')
+
+# First element is a format with {} to be replaced with the block height; the rest are keys to
+# follow to get that block's timestamp:
+api_block = ('http://explorer.wowne.ro:8082/api/block/{}', 'data', 'timestamp')
+
+# Run: ./wow-emission
+
+# END CONFIGURATION
+
+time_period = N*DIFFICULTY_TARGET
+h = requests.get(api_height[0]).json()
+for i in api_height[1:]:
+    h = h[i]
+
+h -= 1  # want height of last block, not current network height
+
+next_ts = None
+next_h = None
+while h > 1:
+    contains_fork = None
+    for fork_height, fork_name in forks.items():
+        if h is not None and h < fork_height <= next_h:
+            contains_fork = fork_name
+            break
+
+    ts = requests.get(api_block[0].format(h)).json()
+    for i in api_block[1:]:
+        ts = ts[i]
+
+    if next_ts is not None:
+        elapsed = next_ts - ts
+        print("{} -- {}: elapsed time = {}s = {:.2f}% of {} target = avg solvetime = {:.2f} minutes over {} blocks".format(
+            h, next_h, elapsed, 100.*elapsed/time_period, time_period, elapsed/60/N, N), end='')
+
+        print(" --- ({} FORK) ---".format(contains_fork) if contains_fork is not None else "")
+
+    next_ts = ts
+    next_h = h
+    h -= N
