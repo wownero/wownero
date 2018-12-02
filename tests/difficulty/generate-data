@@ -32,10 +32,10 @@
 
 from random import randint
 
-DIFFICULTY_TARGET = 120
-DIFFICULTY_WINDOW = 720
-DIFFICULTY_LAG = 15
-DIFFICULTY_CUT = 60
+DIFFICULTY_TARGET = 300
+DIFFICULTY_WINDOW = 144
+DIFFICULTY_LAG = 3
+DIFFICULTY_CUT = 12
 
 UINT_MAX = (1 << 64) - 1
 
@@ -43,8 +43,8 @@ def difficulty():
     times = []
     diffs = []
     while True:
-        if len(times) <= 1:
-            diff = 1
+        if len(times) <= 10:
+            diff = 1069
         else:
             begin = max(len(times) - DIFFICULTY_WINDOW - DIFFICULTY_LAG, 0)
             end = min(begin + DIFFICULTY_WINDOW, len(times))
