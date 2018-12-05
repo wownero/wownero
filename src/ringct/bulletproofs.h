@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2017-2018, The Monero And Italo Project
 // 
 // All rights reserved.
 // 
@@ -42,9 +42,19 @@ Bulletproof bulletproof_PROVE(const rct::key &v, const rct::key &gamma);
 Bulletproof bulletproof_PROVE(uint64_t v, const rct::key &gamma);
 Bulletproof bulletproof_PROVE(const rct::keyV &v, const rct::keyV &gamma);
 Bulletproof bulletproof_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma);
+
+Bulletproof bulletproof_PROVE_old(const rct::key &v, const rct::key &gamma);
+Bulletproof bulletproof_PROVE_old(uint64_t v, const rct::key &gamma);
+Bulletproof bulletproof_PROVE_old(const rct::keyV &v, const rct::keyV &gamma);
+Bulletproof bulletproof_PROVE_old(const std::vector<uint64_t> &v, const rct::keyV &gamma);
+
 bool bulletproof_VERIFY(const Bulletproof &proof);
 bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs);
 bool bulletproof_VERIFY(const std::vector<Bulletproof> &proofs);
+
+bool bulletproof_VERIFY_old(const Bulletproof &proof);
+bool bulletproof_VERIFY_old(const std::vector<const Bulletproof*> &proofs);
+bool bulletproof_VERIFY_old(const std::vector<Bulletproof> &proofs);
 
 }
 
