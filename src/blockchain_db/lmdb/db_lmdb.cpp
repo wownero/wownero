@@ -730,7 +730,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, const diff
   bi.bi_diff = cumulative_difficulty;
   bi.bi_hash = blk_hash;
   bi.bi_cum_rct = num_rct_outs;
-  if (blk.major_version >= 4)
+  if (m_height > 0 && blk.major_version >= 4)
   {
     uint64_t last_height = m_height-1;
     MDB_val_set(h, last_height);
@@ -1211,7 +1211,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   if (is_hdd_result)
   {
     if (is_hdd_result.value())
-        MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use an SSD if possible");
+        MCLOG_RED(el::Level::Debug, "global", "The blockchain is on a rotating drive: this will be very slow, use an SSD if possible");
   }
 
   m_folder = filename;

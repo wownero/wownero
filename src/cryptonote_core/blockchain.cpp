@@ -92,7 +92,6 @@ static const struct {
  { 9, 53666, 0, 1538689773 },
  { 10, 63469, 0, 1541700352 },
 };
-static const uint64_t mainnet_hard_fork_version_1_till = ((uint64_t)(0));
 
 static const struct {
   uint8_t version;
@@ -105,7 +104,6 @@ static const struct {
   { 10, 120, 0, 1543795200 },
   { 11, 180, 0, 1543922445 },
 };
-static const uint64_t testnet_hard_fork_version_1_till = ((uint64_t)(1));
 
 static const struct {
   uint8_t version;
@@ -328,9 +326,9 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
       m_hardfork = new HardFork(*db, 1, 0);
     else if (m_nettype == TESTNET)
-      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 1, 0);
     else
-      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 1, 0);
   }
   if (m_nettype == FAKECHAIN)
   {
