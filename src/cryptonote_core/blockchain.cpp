@@ -2450,6 +2450,20 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
 }
 
+
+  // from v12, forbid old bulletproofs
+  if (hf_version > 11) {
+    if (tx.version >= 2) {
+      const bool old_bulletproof = rct::is_rct_old_bulletproof(tx.rct_signatures.type);
+      if (old_bulletproof)
+        {
+          MERROR_VER("Old Bulletproofs are not allowed after v11");
+          tvc.m_invalid_output = true;
+          return false;
+        }
+    }
+  }
+
   return true;
 }
 //------------------------------------------------------------------
