@@ -1443,7 +1443,7 @@ bool Blockchain::complete_timestamps_vector(uint64_t start_top_height, std::vect
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   uint8_t version = get_current_hard_fork_version();
-  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
   if(timestamps.size() >= blockchain_timestamp_check_window)
     return true;
 
@@ -3183,7 +3183,7 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
   LOG_PRINT_L3("Blockchain::" << __func__);
   median_ts = epee::misc_utils::median(timestamps);
   uint8_t version = get_current_hard_fork_version();
-  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
   if(b.timestamp < median_ts)
   {
     MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", less than median of last " << blockchain_timestamp_check_window << " blocks, " << median_ts);
@@ -3205,7 +3205,7 @@ bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) cons
   LOG_PRINT_L3("Blockchain::" << __func__);
   uint8_t version = get_current_hard_fork_version();
   uint64_t cryptonote_block_future_time_limit = version >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
-  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+  size_t blockchain_timestamp_check_window = version >= 11 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3 : version == 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
 
   if(b.timestamp > get_adjusted_time() + cryptonote_block_future_time_limit)
   {
