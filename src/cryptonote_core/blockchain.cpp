@@ -879,15 +879,15 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   difficulty_type diff = next_difficulty(timestamps, difficulties, target);
 
   if (version >= 11) {
-    difficulty_type diff = next_difficulty_v5(timestamps, difficulties, target);
+    diff = next_difficulty_v5(timestamps, difficulties, target);
   } else if (version == 10) {
-    difficulty_type diff = next_difficulty_v4(timestamps, difficulties, height);
+    diff = next_difficulty_v4(timestamps, difficulties, height);
   } else if (version == 9) {
-    difficulty_type diff = next_difficulty_v3(timestamps, difficulties);
+    diff = next_difficulty_v3(timestamps, difficulties);
   } else if (version == 8) {
-    difficulty_type diff = next_difficulty_v2(timestamps, difficulties, target);
+    diff = next_difficulty_v2(timestamps, difficulties, target);
   } else {
-    difficulty_type diff = next_difficulty(timestamps, difficulties, target);
+    diff = next_difficulty(timestamps, difficulties, target);
   }
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
