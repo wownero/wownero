@@ -49,7 +49,7 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             4
 
-#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3            24
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V3            12
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2            11
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
@@ -80,12 +80,12 @@
 
 #define DIFFICULTY_TARGET_V2                            300
 #define DIFFICULTY_TARGET_V1                            300
-#define DIFFICULTY_WINDOW_V3                            288
+#define DIFFICULTY_WINDOW_V3                            144
 #define DIFFICULTY_WINDOW_V2                            60
 #define DIFFICULTY_WINDOW                               720 // blocks
-#define DIFFICULTY_LAG_V2                               6
+#define DIFFICULTY_LAG_V2                               3
 #define DIFFICULTY_LAG                                  15  // !!!
-#define DIFFICULTY_CUT_V2                               24
+#define DIFFICULTY_CUT_V2                               12
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V3                      DIFFICULTY_WINDOW_V3 + DIFFICULTY_LAG_V2
 #define DIFFICULTY_BLOCKS_COUNT_V2                      DIFFICULTY_WINDOW_V2 + 1 // added +1 to make N=N
