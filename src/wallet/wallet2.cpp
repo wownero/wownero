@@ -6259,6 +6259,10 @@ uint64_t wallet2::get_dynamic_base_fee_estimate() const
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee() const
 {
+  if (use_fork_rules(HF_VERSION_PER_BYTE_FEE))
+  {
+    return FEE_PER_BYTE;
+  }
   if(m_light_wallet)
   {
     if (use_fork_rules(HF_VERSION_PER_BYTE_FEE))
