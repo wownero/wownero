@@ -8544,7 +8544,7 @@ int main(int argc, char* argv[])
   std::tie(vm, should_terminate) = wallet_args::main(
    argc, argv,
    "wownero-wallet-cli [--wallet-file=<file>|--generate-new-wallet=<file>] [<COMMAND>]",
-    sw::tr("This is the command line wownero wallet. It needs to connect to a wownero\ndaemon to work correctly.\nWARNING: Do not reuse your Wownero keys on another fork, UNLESS this fork has key reuse mitigations built in. Doing so will harm your privacy."),
+    sw::tr("This is the command line wownero wallet. It needs to connect to a wownero\ndaemon to work correctly."),
     desc_params,
     positional_options,
     [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },
