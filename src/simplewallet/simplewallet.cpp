@@ -4971,7 +4971,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   // prompt is there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && dsts.size() > num_subaddresses)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction: ask the recipient to use subaddresses instead. Continue anyway?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("There is no easy way for exchanges and large merchants to identify that this transaction came from you. Request a subaddress in these cases. Continue anyway?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -5514,7 +5514,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   // prompt is there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction: ask the recipient to use subaddresses instead. Continue anyway?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("There is no easy way for exchanges and large merchants to identify that this transaction came from you. Request a subaddress in these cases. Continue anyway?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -5782,7 +5782,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   // prompt if there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
   {
-     std::string accepted = input_line(tr("No payment id is included with this transaction: ask the recipient to use subaddresses instead. Continue anyway?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("There is no easy way for exchanges and large merchants to identify that this transaction came from you. Request a subaddress in these cases. Continue anyway?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
