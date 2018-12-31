@@ -1,31 +1,29 @@
-name: monero
-version: 0.11.1.0-1
-summary: "Monero: the secure, private, untraceable cryptocurrency https://getmonero.org"
+name: wownero
+version: 0.5.0.0
+summary: "Wownero: the secure, private, untraceable cryptocurrency http://wownero.org"
 description: |
-    Monero is a private, secure, untraceable, decentralised digital currency.
-    You are your bank, you control your funds, and nobody can trace your transfers
-    unless you allow them to do so.
+    Wownero: a fairly launched privacy-centric meme coin with no premine and a finite supply.
 grade: devel
 confinement: strict
 
 apps:
-    monerod:
+    wownerod:
         daemon: forking
         command: |
-          monerod-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/monerod.conf
+          wownerod-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/wownerod.conf
         plugs:
             - network
             - network-bind
-    monero-wallet-rpc:
+    wownero-wallet-rpc:
         command: |
-          monero-wallet-rpc --log-file ${SNAP_USER_DATA}
+          wownero-wallet-rpc --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
             - network-bind
-    monero-wallet-cli:
+    wownero-wallet-cli:
         command: |
-          monero-wallet-cli --log-file ${SNAP_USER_DATA}
+          wownero-wallet-cli --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
@@ -71,8 +69,8 @@ parts:
         plugin: dump
         source: .
         organize:
-            contrib/snap/monerod.conf: etc/monerod.conf
-            contrib/snap/monerod-wrapper: bin/monerod-wrapper
+            contrib/snap/wownerod.conf: etc/wownerod.conf
+            contrib/snap/wownerod-wrapper: bin/wownerod-wrapper
         prime:
             - etc
             - bin
