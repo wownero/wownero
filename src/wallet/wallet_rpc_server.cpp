@@ -3855,6 +3855,7 @@ public:
       wrpc->send_stop_signal();
     });
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("WARNING: Integrated addresses and Payment IDs are obsolete. Use subaddresses instead."));
     try
     {
       wrpc->run();
