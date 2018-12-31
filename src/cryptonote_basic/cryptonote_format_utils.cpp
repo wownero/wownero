@@ -186,7 +186,6 @@ namespace cryptonote
             const size_t n_amounts = rct::n_bulletproof_v1_amounts(rv.p.bulletproofs[n]);
             CHECK_AND_ASSERT_MES(idx + n_amounts <= rv.outPk.size(), false, "Internal error filling out V");
             rv.p.bulletproofs[n].V.resize(n_amounts);
-            rv.p.bulletproofs[n].V.clear();
             for (size_t i = 0; i < n_amounts; ++i)
               rv.p.bulletproofs[n].V[i] = rv.outPk[idx++].mask;
           }
