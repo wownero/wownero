@@ -59,7 +59,7 @@ Packages are available for
 
 * NixOS
 
-        TODO
+        nix-shell -p altcoins.wownero
 
 Packaging for your favorite distribution would be a welcome contribution!
 
