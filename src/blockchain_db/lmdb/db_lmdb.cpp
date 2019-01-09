@@ -456,6 +456,12 @@ inline int lmdb_txn_renew(MDB_txn *txn)
   return res;
 }
 
+inline void BlockchainLMDB::check_open() const
+{
+  if (!m_open)
+    throw0(DB_ERROR("DB operation attempted on a not-open DB instance"));
+}
+
 void BlockchainLMDB::do_resize(uint64_t increase_size)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1164,36 +1170,6 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
     if (result)
         throw1(DB_ERROR(lmdb_error("Error adding removal of key image to db transaction", result).c_str()));
   }
-}
-
-blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  blobdata b;
-  if (!t_serializable_object_to_blob(output, b))
-    throw1(DB_ERROR("Error serializing output to blob"));
-  return b;
-}
-
-tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  std::stringstream ss;
-  ss << blob;
-  binary_archive<false> ba(ss);
-  tx_out o;
-
-  if (!(::serialization::serialize(ba, o)))
-    throw1(DB_ERROR("Error deserializing tx output blob"));
-
-  return o;
-}
-
-void BlockchainLMDB::check_open() const
-{
-//  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  if (!m_open)
-    throw0(DB_ERROR("DB operation attempted on a not-open DB instance"));
 }
 
 BlockchainLMDB::~BlockchainLMDB()
@@ -2559,7 +2535,7 @@ uint64_t BlockchainLMDB::get_num_outputs(const uint64_t& amount) const
   return num_elems;
 }
 
-output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index)
+output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint64_t& index) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3192,7 +3168,7 @@ uint64_t BlockchainLMDB::add_block(const block& blk, size_t block_weight, const 
   check_open();
   uint64_t m_height = height();
 
-  if (m_height % 1000 == 0)
+  if (m_height % 1024 == 0)
   {
     // for batch mode, DB resize check is done at start of batch transaction
     if (! m_batch_active && need_resize())
@@ -3266,7 +3242,7 @@ void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint6
   TXN_POSTFIX_RDONLY();
 }
 
-void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial)
+void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial) const
 {
   if (amounts.size() != 1 && amounts.size() != offsets.size())
     throw0(DB_ERROR("Invalid sizes of amounts and offets"));
