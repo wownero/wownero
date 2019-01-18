@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -254,6 +254,7 @@ namespace cryptonote
 
     struct transfer_view
     {
+      std::string type;
       boost::variant<uint64_t, std::string> block;
       uint64_t timestamp;
       std::string direction;
@@ -367,6 +368,7 @@ namespace cryptonote
     std::string m_mnemonic_language;
     std::string m_import_path;
     std::string m_subaddress_lookahead;
+    std::string m_restore_date;  // optional - converted to m_restore_height
 
     epee::wipeable_string m_electrum_seed;  // electrum-style seed parameter
 

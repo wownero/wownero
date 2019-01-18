@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -252,19 +252,11 @@ namespace cryptonote
       pruned_size += bd.first.first.size();
       unpruned_size += bd.first.first.size();
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
-      res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-      if (!req.no_miner_tx)
-      {
-        bool r = m_core.get_tx_outputs_gindexs(bd.first.second, res.output_indices.back().indices.back().indices);
-        if (!r)
-        {
-          res.status = "Failed";
-          return false;
-        }
-      }
       ntxes += bd.second.size();
+      res.output_indices.back().indices.reserve(1 + bd.second.size());
+      if (req.no_miner_tx)
+        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
       res.blocks.back().txs.reserve(bd.second.size());
-      res.output_indices.back().indices.reserve(bd.second.size());
       for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
         unpruned_size += i->second.size();
@@ -272,14 +264,25 @@ namespace cryptonote
         i->second.clear();
         i->second.shrink_to_fit();
         pruned_size += res.blocks.back().txs.back().size();
+      }
 
-        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        bool r = m_core.get_tx_outputs_gindexs(i->first, res.output_indices.back().indices.back().indices);
+      const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
+      if (n_txes_to_lookup > 0)
+      {
+        std::vector<std::vector<uint64_t>> indices;
+        bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? bd.second.front().first : bd.first.second, n_txes_to_lookup, indices);
         if (!r)
         {
           res.status = "Failed";
           return false;
         }
+        if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
+        {
+          res.status = "Failed";
+          return false;
+        }
+        for (size_t i = 0; i < indices.size(); ++i)
+          res.output_indices.back().indices.push_back({std::move(indices[i])});
       }
     }
 
@@ -703,31 +706,31 @@ namespace cryptonote
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
       res.status = "Failed";
-      res.reason = "";
+      std::string reason = "";
       if ((res.low_mixin = tvc.m_low_mixin))
-        add_reason(res.reason, "bad ring size");
+        add_reason(reason, "bad ring size");
       if ((res.double_spend = tvc.m_double_spend))
-        add_reason(res.reason, "double spend");
+        add_reason(reason, "double spend");
       if ((res.invalid_input = tvc.m_invalid_input))
-        add_reason(res.reason, "invalid input");
+        add_reason(reason, "invalid input");
       if ((res.invalid_output = tvc.m_invalid_output))
-        add_reason(res.reason, "invalid output");
+        add_reason(reason, "invalid output");
       if ((res.too_big = tvc.m_too_big))
-        add_reason(res.reason, "too big");
+        add_reason(reason, "too big");
       if ((res.overspend = tvc.m_overspend))
-        add_reason(res.reason, "overspend");
+        add_reason(reason, "overspend");
       if ((res.fee_too_low = tvc.m_fee_too_low))
-        add_reason(res.reason, "fee too low");
+        add_reason(reason, "fee too low");
       if ((res.not_rct = tvc.m_not_rct))
-        add_reason(res.reason, "tx is not ringct");
-      const std::string punctuation = res.reason.empty() ? "" : ": ";
+        add_reason(reason, "tx is not ringct");
+      const std::string punctuation = reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << reason);
       }
       else
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << reason);
       }
       return true;
     }

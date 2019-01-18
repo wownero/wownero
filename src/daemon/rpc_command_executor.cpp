@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -66,7 +66,7 @@ namespace {
   void print_block_header(cryptonote::block_header_response const & header)
   {
     tools::success_msg_writer()
-      << "timestamp: " << boost::lexical_cast<std::string>(header.timestamp) << std::endl
+      << "timestamp: " << boost::lexical_cast<std::string>(header.timestamp) << " (" << tools::get_human_readable_timestamp(header.timestamp) << ")" << std::endl
       << "previous hash: " << header.prev_hash << std::endl
       << "nonce: " << boost::lexical_cast<std::string>(header.nonce) << std::endl
       << "is orphan: " << header.orphan_status << std::endl
@@ -570,7 +570,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
     if (!first)
       tools::msg_writer() << "" << std::endl;
     tools::msg_writer()
-      << "height: " << header.height << ", timestamp: " << header.timestamp
+      << "height: " << header.height << ", timestamp: " << header.timestamp << " (" << tools::get_human_readable_timestamp(header.timestamp) << ")"
       << ", size: " << header.block_size << ", weight: " << header.block_weight << ", transactions: " << header.num_txes << std::endl
       << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
       << "block id: " << header.hash << ", previous block id: " << header.prev_hash << std::endl
@@ -664,7 +664,7 @@ bool t_rpc_command_executor::print_height() {
   return true;
 }
 
-bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
+bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash, bool include_hex) {
   cryptonote::COMMAND_RPC_GET_BLOCK::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
@@ -690,13 +690,15 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
     }
   }
 
+  if (include_hex)
+    tools::success_msg_writer() << res.blob << std::endl;
   print_block_header(res.block_header);
   tools::success_msg_writer() << res.json << ENDL;
 
   return true;
 }
 
-bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
+bool t_rpc_command_executor::print_block_by_height(uint64_t height, bool include_hex) {
   cryptonote::COMMAND_RPC_GET_BLOCK::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
@@ -722,6 +724,8 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
     }
   }
 
+  if (include_hex)
+    tools::success_msg_writer() << res.blob << std::endl;
   print_block_header(res.block_header);
   tools::success_msg_writer() << res.json << ENDL;
 

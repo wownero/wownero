@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -521,10 +521,12 @@ namespace cryptonote
      *
      * @param tx_id the hash of the transaction to fetch indices for
      * @param indexs return-by-reference the global indices for the transaction's outputs
+     * @param n_txes how many txes in a row to get results for
      *
      * @return false if the transaction does not exist, or if no indices are found, otherwise true
      */
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
+    bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
     /**
      * @brief stores the blockchain
@@ -727,9 +729,16 @@ namespace cryptonote
     /**
      * @brief sets a block notify object to call for every new block
      *
-     * @param notify the notify object to cal at every new block
+     * @param notify the notify object to call at every new block
      */
     void set_block_notify(const std::shared_ptr<tools::Notify> &notify) { m_block_notify = notify; }
+
+    /**
+     * @brief sets a reorg notify object to call for every reorg
+     *
+     * @param notify the notify object to call at every reorg
+     */
+    void set_reorg_notify(const std::shared_ptr<tools::Notify> &notify) { m_reorg_notify = notify; }
 
     /**
      * @brief Put DB in safe sync mode
@@ -923,7 +932,7 @@ namespace cryptonote
      * @param outputs return-by-reference the outputs collected
      */
     void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets,
-        std::vector<output_data_t> &outputs, const std::vector<output_data_t> &extra_tx_map) const;
+        std::vector<output_data_t> &outputs) const;
 
     /**
      * @brief computes the "short" and "long" hashes for a set of blocks
@@ -1069,6 +1078,7 @@ namespace cryptonote
     bool m_btc_valid;
 
     std::shared_ptr<tools::Notify> m_block_notify;
+    std::shared_ptr<tools::Notify> m_reorg_notify;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
