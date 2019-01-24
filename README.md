@@ -21,6 +21,7 @@ Blockchain Explorers
 - https://explorer.wowkira.com
 - http://explorer.wowne.ro
 - http://wow4edxxxudchgj7.onion
+- http://wow5eqtzqvsg5jctqzg5g7uk3u62sfqiacj5x6lo4by7bvnj6jkvubyd.onion
 
 ## Introduction
 
