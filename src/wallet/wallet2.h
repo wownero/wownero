@@ -1003,6 +1003,8 @@ private:
 
     bool always_confirm_transfers() const { return m_always_confirm_transfers; }
     void always_confirm_transfers(bool always) { m_always_confirm_transfers = always; }
+    bool auto_confirm_churn() const { return m_auto_confirm_churn; }
+    void auto_confirm_churn(bool always) { m_auto_confirm_churn = always; }
     bool print_ring_members() const { return m_print_ring_members; }
     void print_ring_members(bool value) { m_print_ring_members = value; }
     bool store_tx_info() const { return m_store_tx_info; }
@@ -1468,6 +1470,7 @@ private:
     uint32_t m_multisig_rounds_passed;
     std::vector<crypto::public_key> m_multisig_derivations;
     bool m_always_confirm_transfers;
+    bool m_auto_confirm_churn;
     bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
     uint32_t m_default_mixin;
