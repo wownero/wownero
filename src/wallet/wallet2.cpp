@@ -816,6 +816,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_nettype(nettype),
   m_multisig_rounds_passed(0),
   m_always_confirm_transfers(true),
+  m_auto_confirm_churn(false),
   m_print_ring_members(false),
   m_store_tx_info(true),
   m_default_mixin(0),
