@@ -66,6 +66,9 @@
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <time.h>
 
 #ifdef WIN32
 #include <boost/locale.hpp>
@@ -228,6 +231,7 @@ namespace
   const char* USAGE_VERSION("version");
   const char* USAGE_HELP("help");
   const char* USAGE_HELP_ADVANCED("help_advanced [<command>]");
+  const char* USAGE_CHURN("churn");
 
   std::string input_line(const std::string& prompt, bool yesno = false)
   {
@@ -3004,6 +3008,12 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::help_advanced, this, _1),
                            tr(USAGE_HELP_ADVANCED),
                            tr("Show the help section or the documentation about a <command>."));
+  m_cmd_binder.set_handler("churn",
+                           boost::bind(&simple_wallet::churn, this, _1),
+                           tr(USAGE_CHURN),
+                           tr("Churning can enhance privacy by increasing the distance of your funds from the source. This is especially\n" 
+                              "important if your funds come from an exchange or a pool that shares public mining data. Each churn also helps\n"
+                              "create more decoy outputs, which is good for constructing stronger ring signatures."));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_variable(const std::vector<std::string> &args)
@@ -5989,6 +5999,9 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     }
 
     // give user total and fee, and prompt to confirm
+
+    if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
+    {
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
@@ -6030,6 +6043,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
       fail_msg_writer() << tr("transaction cancelled.");
 
       return true;
+    }
     }
 
     // actually commit the transactions
@@ -8789,6 +8803,70 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
 bool simple_wallet::process_command(const std::vector<std::string> &args)
 {
   return m_cmd_binder.process_command_vec(args);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::churn(const std::vector<std::string> &args_)
+{
+  // Check if wallet is on MAINNET
+  if (m_wallet->nettype() != cryptonote::MAINNET)
+  {
+    fail_msg_writer() << tr("Churning is only possible on Mainnet, operation cancelled.");
+    return true;
+  }
+
+  // Warning 
+  std::string warning = input_line(tr("Warning: Churning requires your wallet to be open for a few hours. If wallet is left unattended, make sure your computer is in a secure location. Continue?"), true);
+  if (std::cin.eof() || !command_line::is_yes(warning))
+  {
+    message_writer() << tr("Operation cancelled.");
+    return true;
+  }
+
+  // Generate pseudo-random integers for the number of churns and interval pause
+  int churn_number, pause_time, i;
+  srand (time(NULL)); // seed RNG with current time
+  churn_number = rand()%(8 + 1 - 2) + 2; // churn between 2 to 8 times
+  pause_time = rand()%(60 + 1 - 30) + 30; // wait between 30 minutes to 1 hour per each churn
+  float total_time = static_cast<float>(churn_number*pause_time)/60; // calculate how long churning will take in hours
+  printf ("\nTo mitigate the risk of spend time analysis, the number of churns and interval pause time are selected at random.\n");
+  printf ("Now churning %d times with %d-minute intervals, keep your wallet open for %.2f hours.\n", churn_number, pause_time, total_time);
+
+  // Get main address
+  std::vector<std::string> local_args = args_;
+  std::string address_str;
+  address_str = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+  local_args.push_back(address_str);
+
+  // Disable wallet confirmations to allow for automation
+  m_wallet->ask_password(tools::wallet2::AskPasswordNever);
+  m_wallet->always_confirm_transfers(0);
+  m_wallet->auto_refresh(0);
+
+  // Loop sweep_all to main address for churn_number times with pause_time each interval
+  for (i = 1; i <= churn_number; ++i) {
+    message_writer() << tr("\nSweeping entire wallet balance to your main address:");
+    message_writer(console_color_white, true) << address_str;
+    refresh(local_args);
+    sweep_all(local_args);
+    message_writer(console_color_magenta, true) << tr("\n---------------- ") << i << tr(" out of ") << churn_number << tr(" churns completed ----------------");
+    
+    if (i == churn_number)
+    {
+      success_msg_writer() << tr("\nChurning compete.");
+    }
+    else 
+    {
+      message_writer() << tr("\nInterval pause, please wait...");
+      sleep(pause_time*60);
+    }
+  }
+  
+  // Re-enable confirmations 
+  m_wallet->ask_password(tools::wallet2::AskPasswordOnAction);
+  m_wallet->always_confirm_transfers(1);
+  m_wallet->auto_refresh(1);
+
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::interrupt()
