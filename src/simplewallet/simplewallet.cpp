@@ -2044,6 +2044,14 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   return true;
 }
 
+bool simple_wallet::set_auto_confirm_churn(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  parse_bool_and_use(args[1], [&](bool r) {
+    m_wallet->auto_confirm_churn(r);
+  });
+  return true;
+}
+
 bool simple_wallet::set_print_ring_members(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -3036,6 +3044,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     }
     success_msg_writer() << "seed = " << seed_language;
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
+    success_msg_writer() << "auto-confirm-churn = " << m_wallet->auto_confirm_churn();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
     success_msg_writer() << "default-ring-size = " << (m_wallet->default_mixin() ? m_wallet->default_mixin() + 1 : 0);
@@ -3094,6 +3103,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
     }
     CHECK_SIMPLE_VARIABLE("always-confirm-transfers", set_always_confirm_transfers, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("auto-confirm-churn", set_auto_confirm_churn, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("print-ring-members", set_print_ring_members, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("default-ring-size", set_default_ring_size, tr("integer >= ") << MIN_RING_SIZE);
@@ -4627,10 +4637,12 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
           tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete. Use subaddresses instead.");
    }
   }
+  if (m_wallet->auto_confirm_churn() == 0) {
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
   else
     m_refresh_progress_reporter.update(height, true);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index)
@@ -4640,15 +4652,18 @@ void simple_wallet::on_unconfirmed_money_received(uint64_t height, const crypto:
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index)
 {
+
   message_writer(console_color_magenta, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("txid ") << txid << ", " <<
     tr("spent ") << print_money(amount) << ", " <<
     tr("idx ") << subaddr_index;
+  if (m_wallet->auto_confirm_churn() == 0) {
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
   else
     m_refresh_progress_reporter.update(height, true);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx)
@@ -4835,11 +4850,12 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
     extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
   else if (m_wallet->has_unknown_key_images())
     extra += tr(" (Some owned outputs have missing key images - import_key_images needed)");
+  if (m_wallet->auto_confirm_churn() == 0) {
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
   const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
   success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
+    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;}
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
   std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
   if (!detailed || balance_per_subaddress.empty())
@@ -6000,7 +6016,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
 
     // give user total and fee, and prompt to confirm
 
-    if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
+    if (m_wallet->auto_confirm_churn() == 0)
     {
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
@@ -8826,45 +8842,61 @@ bool simple_wallet::churn(const std::vector<std::string> &args_)
   int churn_number, pause_time, i;
   srand (time(NULL)); // seed RNG with current time
   churn_number = rand()%(8 + 1 - 2) + 2; // churn between 2 to 8 times
-  pause_time = rand()%(60 + 1 - 30) + 30; // wait between 30 minutes to 1 hour per each churn
+  pause_time = rand()%(120 + 1 - 60) + 60; // wait between 1  to 2 hours per interval
   float total_time = static_cast<float>(churn_number*pause_time)/60; // calculate how long churning will take in hours
-  printf ("\nTo mitigate the risk of spend time analysis, the number of churns and interval pause time are selected at random.\n");
-  printf ("Now churning %d times with %d-minute intervals, keep your wallet open for %.2f hours.\n", churn_number, pause_time, total_time);
+
+  // Calculate fee
+  float churn_fee = churn_number * 0.032654; // usual 2/2 tx fee
+  if (m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE))
+  {
+    float churn_fee = churn_number * 0.015;
+  }
+
+  // Prompt confirmation
+  printf ("----------------\nNumber of churns: %d\nTotal duration: %.2f hours\nEstimated cost: %.2f WOW\n----------------\n", churn_number, total_time, churn_fee);
+  std::string confirm_churn = input_line(tr("Continue?"), true);
+  if (std::cin.eof() || !command_line::is_yes(confirm_churn))
+  {
+    message_writer() << tr("Operation cancelled.");
+    return true;
+  }
 
   // Get main address
   std::vector<std::string> local_args = args_;
   std::string address_str;
   address_str = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   local_args.push_back(address_str);
+  message_writer() << tr("Sweeping entire wallet balance to your main address:");
+  message_writer(console_color_white, true) << address_str;
 
   // Disable wallet confirmations to allow for automation
+  m_wallet->auto_confirm_churn(1);
   m_wallet->ask_password(tools::wallet2::AskPasswordNever);
   m_wallet->always_confirm_transfers(0);
   m_wallet->auto_refresh(0);
 
   // Loop sweep_all to main address for churn_number times with pause_time each interval
   for (i = 1; i <= churn_number; ++i) {
-    message_writer() << tr("\nSweeping entire wallet balance to your main address:");
-    message_writer(console_color_white, true) << address_str;
     refresh(local_args);
     sweep_all(local_args);
-    message_writer(console_color_magenta, true) << tr("\n---------------- ") << i << tr(" out of ") << churn_number << tr(" churns completed ----------------");
+    message_writer(console_color_magenta, true) << tr("\n---------------- ") << i << tr(" out of ") << churn_number << tr(" churns ----------------");
     
     if (i == churn_number)
     {
       success_msg_writer() << tr("\nChurning compete.");
+
+      // Re-enable confirmations 
+      m_wallet->auto_confirm_churn(0);
+      m_wallet->ask_password(tools::wallet2::AskPasswordOnAction);
+      m_wallet->always_confirm_transfers(1);
+      m_wallet->auto_refresh(1);
     }
     else 
     {
-      message_writer() << tr("\nInterval pause, please wait...");
+      message_writer() << tr("\nInterval pause, please wait...\n");
       sleep(pause_time*60);
     }
   }
-  
-  // Re-enable confirmations 
-  m_wallet->ask_password(tools::wallet2::AskPasswordOnAction);
-  m_wallet->always_confirm_transfers(1);
-  m_wallet->auto_refresh(1);
 
   return true;
 }
@@ -8901,9 +8933,14 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
     }
     else
     {
+      if (m_wallet->auto_confirm_churn() == 0) {
       m_wallet->commit_tx(ptx);
       success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << txid << ENDL
       << tr("You can check its status by using the `show_transfers` command.");
+      } else {
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << tr("Churn successfully executed, transaction ") << txid;        
+      }
     }
     // if no exception, remove element from vector
     ptx_vector.pop_back();
