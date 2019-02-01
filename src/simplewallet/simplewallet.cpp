@@ -5971,8 +5971,10 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     payment_id_seen = true;
   }
 
+  const bool is_wallet_address = m_wallet->get_address() == info.address;
+
   // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress && !is_wallet_address)
   {
      std::string accepted = input_line(tr("There is no easy way for exchanges and large merchants to identify that this transaction came from you. Request a subaddress in these cases. Continue anyway?"), true);
      if (std::cin.eof())
