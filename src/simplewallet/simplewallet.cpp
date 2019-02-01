@@ -2044,14 +2044,6 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   return true;
 }
 
-bool simple_wallet::set_auto_confirm_churn(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  parse_bool_and_use(args[1], [&](bool r) {
-    m_wallet->auto_confirm_churn(r);
-  });
-  return true;
-}
-
 bool simple_wallet::set_print_ring_members(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -3044,7 +3036,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     }
     success_msg_writer() << "seed = " << seed_language;
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
-    success_msg_writer() << "auto-confirm-churn = " << m_wallet->auto_confirm_churn();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
     success_msg_writer() << "default-ring-size = " << (m_wallet->default_mixin() ? m_wallet->default_mixin() + 1 : 0);
@@ -3103,7 +3094,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       }
     }
     CHECK_SIMPLE_VARIABLE("always-confirm-transfers", set_always_confirm_transfers, tr("0 or 1"));
-    CHECK_SIMPLE_VARIABLE("auto-confirm-churn", set_auto_confirm_churn, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("print-ring-members", set_print_ring_members, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("default-ring-size", set_default_ring_size, tr("integer >= ") << MIN_RING_SIZE);
@@ -8832,6 +8822,13 @@ bool simple_wallet::churn(const std::vector<std::string> &args_)
     return true;
   }
 
+  // Check balance
+  if (m_wallet->unlocked_balance(m_current_subaddress_account) < 2)
+  {
+    fail_msg_writer() << tr("You need to have an unlocked balance of more than 2 WOW, operation cancelled.");
+    return true;
+  }
+
   // Warning 
   std::string warning = input_line(tr("Warning: Churning requires your wallet to be open for a few hours. If wallet is left unattended, make sure your computer is in a secure location. Continue?"), true);
   if (std::cin.eof() || !command_line::is_yes(warning))
@@ -8848,11 +8845,7 @@ bool simple_wallet::churn(const std::vector<std::string> &args_)
   float total_time = static_cast<float>(churn_number*pause_time)/60; // calculate how long churning will take in hours
 
   // Calculate fee
-  float churn_fee = churn_number * 0.032654; // usual 2/2 tx fee
-  if (m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE))
-  {
-    float churn_fee = churn_number * 0.015;
-  }
+  float churn_fee = m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE) ? static_cast<float>(churn_number * 0.015) : static_cast<float>(churn_number * 0.032654); // usual 2/2 tx fee
 
   // Prompt confirmation
   printf ("----------------\nNumber of churns: %d\nTotal duration: %.2f hours\nEstimated cost: %.2f WOW\n----------------\n", churn_number, total_time, churn_fee);
