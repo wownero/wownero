@@ -15,6 +15,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - Bitmessage Chan: wownero (`BM-2cSzWtrj2pzLva9GF1Jp2TYsnLjrnJpvba`)
 - Network stats: [https://freeboard.io/board/c8mM2c](https://freeboard.io/board/c8mM2c)
 - Wownero Funding System: [https://funding.wownero.com](https://funding.wownero.com)
+- Keybase Group Chat: [https://keybase.io/team/wownero](https://keybase.io/team/wownero)
 
 Blockchain Explorers
 - https://explore.wownero.com
@@ -40,7 +41,7 @@ Dates are provided in the format YYYY-MM-DD.
 | 6969                           | 2018-04-24 | Busty Brazzers                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
 | 53666                          | 2018-10-06 | Cool Cage                | v0.3.0.0               | v0.3.1.3                  | Cryptonight variant 2, LWMA v2, ringsize = 22, MMS
 | 63469                          | 2018-11-11 | Dank Doge               | v0.4.0.0               | v0.4.0.0                  | LWMA v4
-| XXXXX                          | 2019-02-XX | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.0                  | CryptonightR, SMA difficulty algorithm with N=144, Updated Bulletproofs, Fee Per Byte
+| 81769                          | 2019-02-14 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.0                  | CryptonightR, SMA difficulty algorithm with N=144, Updated Bulletproofs, Fee Per Byte, Tor SOCKS support, Pruning, Auto-churn
 
 X's indicate that these details have not been determined as of commit date.
 
@@ -127,3 +128,32 @@ Type `help` in CLI wallet to see standard commands (for advanced options, type `
 
 ![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-1.png)
 ![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-2.png)
+
+## Anonymous Overlay Networks
+
+# Tor
+
+It is possible to connect to the Wownero network via Tor SOCKS proxy. Edit the `torrc` configuration file and add:
+
+
+        HiddenServiceDir /var/lib/tor/wownero
+        HiddenServiceVersion 3
+        HiddenServicePort 32111 127.0.0.1:32111
+
+Your node's ".onion" address can be found in the `hostname` file. Peers must be manually specified as:
+
+        --add-exclusive-node wowdyoh2juxxjoke.onion:32111
+        --add-peer wowdyoh2juxxjoke.onion:32111
+
+
+Tor Public Nodes
+ - `wowdyoh2juxxjoke.onion:32111`
+ - `vh42ssldf4brtoveyc2zc2rmwybh22ytt7xvqbsfdktkdhgmzz45vvad.onion:32111`
+
+Syntax example:
+
+        ./wownerod --proxy tor,127.0.0.1:9050,20 --anonymous-inbound YOUR_ADDRESS.onion:32111,127.0.0.1:32111,20 --add-peer wowdyoh2juxxjoke.onion:32111 --add-peer vh42ssldf4brtoveyc2zc2rmwybh22ytt7xvqbsfdktkdhgmzz45vvad.onion:32111
+
+# I2P
+
+TODO
