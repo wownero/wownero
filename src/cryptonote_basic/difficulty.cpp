@@ -269,43 +269,40 @@ namespace cryptonote {
    return static_cast<uint64_t>(next_D);
   }
 
-  difficulty_type next_difficulty_v5(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
-  
-    if(timestamps.size() > DIFFICULTY_WINDOW_V3)
-    {
-      timestamps.resize(DIFFICULTY_WINDOW_V3);
-      cumulative_difficulties.resize(DIFFICULTY_WINDOW_V3);
-    }
+  // LWMA-1 difficulty algorithm 
+  // Copyright (c) 2017-2019 Zawy, MIT License
+  // https://github.com/zawy12/difficulty-algorithms/issues/3
+  difficulty_type next_difficulty_v5(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, uint64_t T, uint64_t N, uint64_t HEIGHT, uint64_t FORK_HEIGHT, uint64_t difficulty_guess) {
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
 
-    size_t length = timestamps.size();
-    assert(length == cumulative_difficulties.size());
-    if (length < DIFFICULTY_FORK_HEIGHT + 72) {
-      return DIFFICULTY_RESET;
+    if (HEIGHT >= FORK_HEIGHT && HEIGHT < FORK_HEIGHT + N) { return difficulty_guess; }
+    assert(timestamps.size() == N+1);
+
+    uint64_t  L(0), next_D, i, this_timestamp(0), previous_timestamp(0), avg_D;
+
+    previous_timestamp = timestamps[0]-T;
+    for ( i = 1; i <= N; i++) {
+    // Safely prevent out-of-sequence timestamps
+      if ( timestamps[i]  > previous_timestamp ) {   this_timestamp = timestamps[i];  }
+      else {  this_timestamp = previous_timestamp+1;   }
+      L +=  i*std::min(6*T ,this_timestamp - previous_timestamp);
+      previous_timestamp = this_timestamp;
     }
-    static_assert(DIFFICULTY_WINDOW_V3 >= 2, "Window is too small");
-    assert(length <= DIFFICULTY_WINDOW_V3);
-    sort(timestamps.begin(), timestamps.end());
-    size_t cut_begin, cut_end;
-    static_assert(2 * DIFFICULTY_CUT_V2 <= DIFFICULTY_WINDOW_V3 - 2, "Cut length is too large");
-    if (length <= DIFFICULTY_WINDOW_V3 - 2 * DIFFICULTY_CUT_V2) {
-      cut_begin = 0;
-      cut_end = length;
-    } else {
-      cut_begin = (length - (DIFFICULTY_WINDOW_V3 - 2 * DIFFICULTY_CUT_V2) + 1) / 2;
-      cut_end = cut_begin + (DIFFICULTY_WINDOW_V3 - 2 * DIFFICULTY_CUT_V2);
+    if (L < N*N*T/20 ) { L =  N*N*T/20; }
+    avg_D = ( cumulative_difficulties[N] - cumulative_difficulties[0] )/ N;
+
+    // Prevent round off error for small D and overflow for large D.
+    if (avg_D > 2000000*N*N*T) {
+      next_D = (avg_D/(200*L))*(N*(N+1)*T*99);
     }
-    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
-    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
-    if (time_span == 0) {
-      time_span = 1;
+    else {    next_D = (avg_D*N*(N+1)*T*99)/(200*L);    }
+
+    // Make all insignificant digits zero for easy reading.
+    i = 1000000000;
+    while (i > 1) {
+      if ( next_D > i*100 ) { next_D = ((next_D+i/2)/i)*i; break; }
+      else { i /= 10; }
     }
-    difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
-    assert(total_work > 0);
-    uint64_t low, high;
-    mul(total_work, target_seconds, low, high);
-    if (high != 0 || low + time_span - 1 < low) {
-      return 0;
-    }
-    return (low + time_span - 1) / time_span;
+    return  next_D;
   }
 }
