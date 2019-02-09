@@ -3221,9 +3221,6 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_always_confirm_transfers ? 1 :0);
   json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
 
-  value2.SetInt(m_auto_confirm_churn ? 1 :0);
-  json.AddMember("auto_confirm_churn", value2, json.GetAllocator());
-
   value2.SetInt(m_print_ring_members ? 1 :0);
   json.AddMember("print_ring_members", value2, json.GetAllocator());
 
@@ -3423,7 +3420,6 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_multisig_rounds_passed = 0;
     m_multisig_derivations.clear();
     m_always_confirm_transfers = false;
-    m_auto_confirm_churn = false;
     m_print_ring_members = false;
     m_default_mixin = 0;
     m_default_priority = 0;
@@ -3527,8 +3523,6 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, true);
     m_always_confirm_transfers = field_always_confirm_transfers;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_confirm_churn, int, Int, false, true);
-    m_auto_confirm_churn = field_auto_confirm_churn;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, print_ring_members, int, Int, false, true);
     m_print_ring_members = field_print_ring_members;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false, true);
