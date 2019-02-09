@@ -106,13 +106,13 @@ static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg
 		case ROR: \
 			{ \
 				const uint32_t shift = src % REG_BITS; \
-				*dst = (*dst >> shift) | (*dst << (REG_BITS - shift)); \
+				*dst = (*dst >> shift) | (*dst << ((REG_BITS - shift) % REG_BITS)); \
 			} \
 			break; \
 		case ROL: \
 			{ \
 				const uint32_t shift = src % REG_BITS; \
-				*dst = (*dst << shift) | (*dst >> (REG_BITS - shift)); \
+				*dst = (*dst << shift) | (*dst >> ((REG_BITS - shift) % REG_BITS)); \
 			} \
 			break; \
 		case XOR: \
@@ -166,11 +166,11 @@ static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg
 }
 
 // If we don't have enough data available, generate more
-static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed, char* data, const size_t data_size)
+static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed, int8_t* data, const size_t data_size)
 {
 	if (*data_index + bytes_needed > data_size)
 	{
-		hash_extra_blake(data, data_size, data);
+		hash_extra_blake(data, data_size, (char*) data);
 		*data_index = 0;
 	}
 }
@@ -193,10 +193,14 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 	// Available ALUs for each instruction
 	const int op_ALUs[V4_INSTRUCTION_COUNT] = { ALU_COUNT_MUL, ALU_COUNT, ALU_COUNT, ALU_COUNT, ALU_COUNT, ALU_COUNT };
 
-	char data[32];
+	int8_t data[32];
 	memset(data, 0, sizeof(data));
-	*((uint64_t*)data) = height;
+	uint64_t tmp = SWAP64LE(height);
+	memcpy(data, &tmp, sizeof(uint64_t));
 
+	// Set data_index past the last byte in data
+	// to trigger full data update with blake hash
+	// before we start using it
 	size_t data_index = sizeof(data);
 
 	int code_size;
@@ -209,7 +213,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		// byte 1: instruction opcode
 		// byte 2: current value of the source register
 		//
-		// Registers R4-R7 are constant and are threatened as having the same value because when we do
+		// Registers R4-R7 are constant and are treated as having the same value because when we do
 		// the same operation twice with two constant source registers, it can be optimized into a single operation
 		int inst_data[8] = { 0, 1, 2, 3, -1, -1, -1, -1 };
 
@@ -355,7 +359,9 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 
 					// ADD instruction requires 4 more random bytes for 32-bit constant "C" in "a = a + b + C"
 					check_data(&data_index, sizeof(uint32_t), data, sizeof(data));
-					code[code_size].C = *((uint32_t*)&data[data_index]);
+					uint32_t t;
+					memcpy(&t, data + data_index, sizeof(uint32_t));
+					code[code_size].C = SWAP32LE(t);
 					data_index += sizeof(uint32_t);
 				}
 
