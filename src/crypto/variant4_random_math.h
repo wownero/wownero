@@ -24,7 +24,7 @@ enum V4_Settings
 enum V4_InstructionList
 {
 	MUL,	// a*b
-	ADD,	// a+b + C, -128 <= C <= 127
+	ADD,	// a+b + C, C is an unsigned 32-bit constant
 	SUB,	// a-b
 	ROR,	// rotate right "a" by "b & 31" bits
 	ROL,	// rotate left "a" by "b & 31" bits
@@ -215,7 +215,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		//
 		// Registers R4-R7 are constant and are treated as having the same value because when we do
 		// the same operation twice with two constant source registers, it can be optimized into a single operation
-		int inst_data[8] = { 0, 1, 2, 3, -1, -1, -1, -1 };
+		uint32_t inst_data[8] = { 0, 1, 2, 3, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF };
 
 		bool alu_busy[TOTAL_LATENCY + 1][ALU_COUNT];
 		bool is_rotation[V4_INSTRUCTION_COUNT];
@@ -233,10 +233,17 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		int num_retries = 0;
 		code_size = 0;
 
+		int total_iterations = 0;
+
 		// Generate random code to achieve minimal required latency for our abstract CPU
 		// Try to get this latency for all 4 registers
 		while (((latency[0] < TOTAL_LATENCY) || (latency[1] < TOTAL_LATENCY) || (latency[2] < TOTAL_LATENCY) || (latency[3] < TOTAL_LATENCY)) && (num_retries < 64))
 		{
+			// Fail-safe to guarantee loop termination
+			++total_iterations;
+			if (total_iterations > 256)
+				break;
+
 			check_data(&data_index, 1, data, sizeof(data));
 
 			const uint8_t c = ((uint8_t*)data)[data_index++];
