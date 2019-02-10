@@ -1,4 +1,4 @@
-# ~~Mo~~Wownero
+# ~~Mo~~Wownero -  Such privacy! Many coins! Wow! 🐕
 
 Copyright (c) 2014-2018 The Monero Project.   
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
@@ -41,7 +41,7 @@ Dates are provided in the format YYYY-MM-DD.
 | 6969                           | 2018-04-24 | Busty Brazzers                | v0.2.0.0               | v0.2.0.0                  | Bulletproofs, LWMA difficulty algorithm, ringsize >= 10, reduce unlock to 4
 | 53666                          | 2018-10-06 | Cool Cage                | v0.3.0.0               | v0.3.1.3                  | Cryptonight variant 2, LWMA v2, ringsize = 22, MMS
 | 63469                          | 2018-11-11 | Dank Doge               | v0.4.0.0               | v0.4.0.0                  | LWMA v4
-| 81769                          | 2019-02-14 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.0                  | CryptonightR, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
+| 81769                          | 2019-02-14 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.0                  | Cryptonight/wow, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
 
 X's indicate that these details have not been determined as of commit date.
 
@@ -62,6 +62,13 @@ Packages are available for
 * NixOS
 
         nix-shell -p altcoins.wownero
+
+* Ubuntu 18.04/Ubuntu 16.04/Debian 9/Debian 8 (amd64)
+
+        add-apt-repository "deb http://ppa.wownero.com/ bionic main"
+        apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B09DF0E4B0C56A94
+        sudo apt-get update
+        sudo apt-get install wownero
 
 Packaging for your favorite distribution would be a welcome contribution!
 
@@ -128,3 +135,13 @@ Type `help` in CLI wallet to see standard commands (for advanced options, type `
 
 ![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-1.png)
 ![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-2.png)
+
+## Donating to Wownero Project
+
+Developers are volunteers doing this mostly for shits and giggles. If you would like to support our shenanigans and stimulant addictions, please consider donating to [WFS proposals](https://funding.wownero.com/proposals) or the [dev slush fund](https://funding.wownero.com/donate).
+
+Donations may also be sent to: 
+
+XMR: `44SQVPGLufPasUcuUQSZiF5c9BFzjcP8ucDxzzFDgLf1VkCEFaidJ3u2AhSKMhPLKA3jc2iS8wQHFcaigM6fXmo6AnFRn5B`
+
+BTC: `bc1qcw9zglp3fxyl25zswemw7jczlqryms2lsmu464`
