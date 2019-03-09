@@ -876,7 +876,7 @@ uint64_t estimate_tx_weight(bool use_rct, int n_inputs, int mixin, int n_outputs
 
 uint8_t get_bulletproof_fork()
 {
-  return 8;
+  return 11;
 }
 
 uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, uint64_t base_fee, uint64_t fee_multiplier, uint64_t fee_quantization_mask)
@@ -1712,10 +1712,12 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
     switch (rv.type)
     {
     case rct::RCTTypeSimple:
+    case rct::RCTTypeSimpleBulletproof:
     case rct::RCTTypeBulletproof:
     case rct::RCTTypeBulletproof2:
       return rct::decodeRctSimple(rv, rct::sk2rct(scalar1), i, mask, hwdev);
     case rct::RCTTypeFull:
+    case rct::RCTTypeFullBulletproof:
       return rct::decodeRct(rv, rct::sk2rct(scalar1), i, mask, hwdev);
     default:
       LOG_ERROR("Unsupported rct type: " << rv.type);
@@ -7134,6 +7136,10 @@ uint64_t wallet2::get_dynamic_base_fee_estimate()
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee()
 {
+  if (use_fork_rules(HF_VERSION_PER_BYTE_FEE))
+  {
+    return FEE_PER_BYTE;
+  }
   if(m_light_wallet)
   {
     if (use_fork_rules(HF_VERSION_PER_BYTE_FEE))
@@ -9412,7 +9418,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0
+    bulletproof ? (use_fork_rules(12, 0) ? 1 : 2) : 0
   };
 
   const uint64_t base_fee  = get_base_fee();
@@ -9448,7 +9454,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // early out if we know we can't make it anyway
   // we could also check for being within FEE_PER_KB, but if the fee calculation
   // ever changes, this might be missed, so let this go through
-  const uint64_t min_fee = (fee_multiplier * base_fee * estimate_tx_size(use_rct, 1, fake_outs_count, 2, extra.size(), bulletproof));
+  const uint64_t min_fee = estimate_fee(use_per_byte_fee, use_rct, 1, fake_outs_count, 2, extra.size(), bulletproof, base_fee, fee_multiplier, fee_quantization_mask);
   uint64_t balance_subtotal = 0;
   uint64_t unlocked_balance_subtotal = 0;
   for (uint32_t index_minor : subaddr_indices)
@@ -10082,7 +10088,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const rct::RCTConfig rct_config {
     bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
-    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0,
+    bulletproof ? (use_fork_rules(12, 0) ? 1 : 2) : 0,
   };
   const uint64_t base_fee  = get_base_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
