@@ -1332,7 +1332,7 @@ namespace nodetool
       return true;
     if (get_incoming_connections_count() == 0)
     {
-      const el::Level level = el::Level::Warning;
+      const el::Level level = el::Level::Debug;
       MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
     }
     return true;
