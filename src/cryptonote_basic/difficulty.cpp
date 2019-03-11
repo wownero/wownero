@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <boost/math/special_functions/round.hpp>
 
 #include "common/int-util.h"
 #include "crypto/hash.h"
@@ -162,4 +163,146 @@ namespace cryptonote {
     return (low + time_span - 1) / time_span;
   }
 
+  // LWMA difficulty algorithm
+  // Background:  https://github.com/zawy12/difficulty-algorithms/issues/3
+  // Copyright (c) 2017-2018 Zawy
+  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
+  
+    const int64_t T = static_cast<int64_t>(target_seconds);
+    size_t N = DIFFICULTY_WINDOW_V2;
+    if (timestamps.size() < 4) { 
+      return 1; 
+    } else if ( timestamps.size() < N+1 ) { 
+      N = timestamps.size() - 1;
+    } else {  
+      timestamps.resize(N+1);  
+      cumulative_difficulties.resize(N+1);
+    }
+    const double adjust = 0.998;
+    const double k = N * (N + 1) / 2;
+    double LWMA(0), sum_inverse_D(0), harmonic_mean_D(0), nextDifficulty(0);
+    int64_t solveTime(0);
+    uint64_t difficulty(0), next_difficulty(0);
+    for (size_t i = 1; i <= N; i++) {
+      solveTime = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i - 1]);
+      solveTime = std::min<int64_t>((T * 7), std::max<int64_t>(solveTime, (-7 * T)));
+      difficulty = cumulative_difficulties[i] - cumulative_difficulties[i - 1];
+      LWMA += (int64_t)(solveTime * i) / k;
+      sum_inverse_D += 1 / static_cast<double>(difficulty);
+    }
+    harmonic_mean_D = N / sum_inverse_D;
+    if (static_cast<int64_t>(boost::math::round(LWMA)) < T / 20)
+      LWMA = static_cast<double>(T / 20);
+
+    nextDifficulty = harmonic_mean_D * T / LWMA * adjust;
+    next_difficulty = static_cast<uint64_t>(nextDifficulty);
+    return next_difficulty;
+  }
+
+  // LWMA-2
+  difficulty_type next_difficulty_v3(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
+  
+    int64_t  T = DIFFICULTY_TARGET_V2;
+    int64_t  N = DIFFICULTY_WINDOW_V2;
+    int64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
+    for ( int64_t i = 1; i <= N; i++ ) {  
+      ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
+      ST = std::max(-4*T, std::min(ST, 6*T));
+      L +=  ST * i ; 
+      if ( i > N-3 ) { 
+        sum_3_ST += ST; 
+      } 
+    }
+    next_D = (static_cast<int64_t>(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+    prev_D = cumulative_difficulties[N] - cumulative_difficulties[N-1];
+    next_D = std::max((prev_D*67)/100, std::min(next_D, (prev_D*150)/100));
+    if ( sum_3_ST < (8*T)/10) { 
+      next_D = std::max(next_D,(prev_D*108)/100); 
+    }
+    return static_cast<uint64_t>(next_D);
+  }
+
+  // LWMA-4
+  difficulty_type next_difficulty_v4(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t height) {
+  
+    uint64_t  T = DIFFICULTY_TARGET_V2;
+    uint64_t  N = DIFFICULTY_WINDOW_V2;
+    uint64_t  L(0), ST(0), next_D, prev_D, avg_D, i;
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
+    if ( height <= 63469 + 1 ) { return 100000069; }
+    std::vector<uint64_t>TS(N+1);
+    TS[0] = timestamps[0];
+    for ( i = 1; i <= N; i++) {
+      if ( timestamps[i]  > TS[i-1]  ) {   TS[i] = timestamps[i];  } 
+      else {  TS[i] = TS[i-1];   }
+    }
+    for ( i = 1; i <= N; i++) {
+      if ( i > 4 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-4] < (14*T)/10 ) {   ST = 2*T; }
+      else if ( i > 7 && TS[i]-TS[i-1] > 5*T  && TS[i-1] - TS[i-7] < 4*T ) {   ST = 2*T; }
+      else { 
+        ST = std::min(5*T ,TS[i] - TS[i-1]);
+      }
+      L +=  ST * i ; 
+    } 
+    if (L < N*N*T/20 ) { L =  N*N*T/20; } 
+    avg_D = ( cumulative_difficulties[N] - cumulative_difficulties[0] )/ N;
+    if (avg_D > 2000000*N*N*T) {
+      next_D = (avg_D/(200*L))*(N*(N+1)*T*97);   
+    }   
+    else {    next_D = (avg_D*N*(N+1)*T*97)/(200*L);    }
+    prev_D =  cumulative_difficulties[N] - cumulative_difficulties[N-1] ; 
+    if (  ( TS[N] - TS[N-1] < (2*T)/10 ) || 
+         ( TS[N] - TS[N-2] < (5*T)/10 ) ||  
+         ( TS[N] - TS[N-3] < (8*T)/10 )    )
+    {  
+      next_D = std::max( next_D, std::min( (prev_D*110)/100, (105*avg_D)/100 ) ); 
+    }
+    i = 1000000000;
+    while (i > 1) { 
+      if ( next_D > i*100 ) { next_D = ((next_D+i/2)/i)*i; break; }
+     else { i /= 10; }
+   }
+   if ( next_D > 100000 ) { 
+    next_D = ((next_D+500)/1000)*1000 + std::min(static_cast<uint64_t>(999), (TS[N]-TS[N-10])/10); 
+   }
+   return static_cast<uint64_t>(next_D);
+  }
+
+  // LWMA-1 difficulty algorithm 
+  // Copyright (c) 2017-2019 Zawy, MIT License
+  // https://github.com/zawy12/difficulty-algorithms/issues/3
+  difficulty_type next_difficulty_v5(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, uint64_t T, uint64_t N, uint64_t HEIGHT, uint64_t FORK_HEIGHT, uint64_t difficulty_guess) {
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
+
+    if (HEIGHT >= FORK_HEIGHT && HEIGHT < FORK_HEIGHT + N) { return difficulty_guess; }
+    assert(timestamps.size() == N+1);
+
+    uint64_t  L(0), next_D, i, this_timestamp(0), previous_timestamp(0), avg_D;
+
+    previous_timestamp = timestamps[0]-T;
+    for ( i = 1; i <= N; i++) {
+    // Safely prevent out-of-sequence timestamps
+      if ( timestamps[i]  > previous_timestamp ) {   this_timestamp = timestamps[i];  }
+      else {  this_timestamp = previous_timestamp+1;   }
+      L +=  i*std::min(6*T ,this_timestamp - previous_timestamp);
+      previous_timestamp = this_timestamp;
+    }
+    if (L < N*N*T/20 ) { L =  N*N*T/20; }
+    avg_D = ( cumulative_difficulties[N] - cumulative_difficulties[0] )/ N;
+
+    // Prevent round off error for small D and overflow for large D.
+    if (avg_D > 2000000*N*N*T) {
+      next_D = (avg_D/(200*L))*(N*(N+1)*T*99);
+    }
+    else {    next_D = (avg_D*N*(N+1)*T*99)/(200*L);    }
+
+    // Make all insignificant digits zero for easy reading.
+    i = 1000000000;
+    while (i > 1) {
+      if ( next_D > i*100 ) { next_D = ((next_D+i/2)/i)*i; break; }
+      else { i /= 10; }
+    }
+    return  next_D;
+  }
 }
