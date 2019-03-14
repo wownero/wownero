@@ -48,7 +48,7 @@ all: release-all
 
 cmake-debug:
 	mkdir -p $(builddir)/debug
-	cd $(builddir)/debug && cmake -D CMAKE_BUILD_TYPE=Debug $(topdir)
+	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Debug $(topdir)
 
 debug: cmake-debug
 	cd $(builddir)/debug && $(MAKE)
