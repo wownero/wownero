@@ -6364,7 +6364,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     COMMAND_RPC_SEND_RAW_TX::request req;
     req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
     req.do_not_relay = false;
-    req.do_sanity_checks = true;
+    req.do_sanity_checks = false;
     COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
 
     {

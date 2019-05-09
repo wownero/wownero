@@ -52,7 +52,7 @@ class Daemon(object):
         return self.rpc.send_json_rpc_request(getblocktemplate)
     get_block_template = getblocktemplate
 
-    def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = True, client = ""):
+    def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = False, client = ""):
         send_raw_transaction = {
             'client': client,
             'tx_as_hex': tx_as_hex,

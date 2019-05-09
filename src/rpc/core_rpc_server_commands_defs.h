@@ -571,7 +571,7 @@ namespace cryptonote
         KV_SERIALIZE_PARENT(rpc_access_request_base);
         KV_SERIALIZE(tx_as_hex)
         KV_SERIALIZE_OPT(do_not_relay, false)
-        KV_SERIALIZE_OPT(do_sanity_checks, true)
+        KV_SERIALIZE_OPT(do_sanity_checks, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
