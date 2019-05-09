@@ -1090,7 +1090,7 @@ namespace cryptonote
     {
       res.status = "Failed";
       res.reason = "Sanity check failed";
-      res.sanity_check_failed = true;
+      res.sanity_check_failed = false;
       return true;
     }
     res.sanity_check_failed = false;
