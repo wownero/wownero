@@ -50,7 +50,7 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(getblocktemplate)
 
-    def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = True):
+    def send_raw_transaction(self, tx_as_hex, do_not_relay = False, do_sanity_checks = False):
         send_raw_transaction = {
             'tx_as_hex': tx_as_hex,
             'do_not_relay': do_not_relay,

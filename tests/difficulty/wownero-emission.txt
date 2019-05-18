@@ -1,0 +1,26 @@
+511 -- 531: elapsed time = 7762s = 129.37% of 6000 target = avg solvetime = 6.47 minutes over 20 blocks
+491 -- 511: elapsed time = 6297s = 104.95% of 6000 target = avg solvetime = 5.25 minutes over 20 blocks
+471 -- 491: elapsed time = 3985s = 66.42% of 6000 target = avg solvetime = 3.32 minutes over 20 blocks
+451 -- 471: elapsed time = 5388s = 89.80% of 6000 target = avg solvetime = 4.49 minutes over 20 blocks
+431 -- 451: elapsed time = 5144s = 85.73% of 6000 target = avg solvetime = 4.29 minutes over 20 blocks
+411 -- 431: elapsed time = 4888s = 81.47% of 6000 target = avg solvetime = 4.07 minutes over 20 blocks
+391 -- 411: elapsed time = 6575s = 109.58% of 6000 target = avg solvetime = 5.48 minutes over 20 blocks
+371 -- 391: elapsed time = 7242s = 120.70% of 6000 target = avg solvetime = 6.04 minutes over 20 blocks
+351 -- 371: elapsed time = 7671s = 127.85% of 6000 target = avg solvetime = 6.39 minutes over 20 blocks
+331 -- 351: elapsed time = 6294s = 104.90% of 6000 target = avg solvetime = 5.25 minutes over 20 blocks
+311 -- 331: elapsed time = 7189s = 119.82% of 6000 target = avg solvetime = 5.99 minutes over 20 blocks
+291 -- 311: elapsed time = 7190s = 119.83% of 6000 target = avg solvetime = 5.99 minutes over 20 blocks
+271 -- 291: elapsed time = 6952s = 115.87% of 6000 target = avg solvetime = 5.79 minutes over 20 blocks
+251 -- 271: elapsed time = 5054s = 84.23% of 6000 target = avg solvetime = 4.21 minutes over 20 blocks
+231 -- 251: elapsed time = 5352s = 89.20% of 6000 target = avg solvetime = 4.46 minutes over 20 blocks
+211 -- 231: elapsed time = 3270s = 54.50% of 6000 target = avg solvetime = 2.73 minutes over 20 blocks
+191 -- 211: elapsed time = 5190s = 86.50% of 6000 target = avg solvetime = 4.33 minutes over 20 blocks
+171 -- 191: elapsed time = 8681s = 144.68% of 6000 target = avg solvetime = 7.23 minutes over 20 blocks
+151 -- 171: elapsed time = 6051s = 100.85% of 6000 target = avg solvetime = 5.04 minutes over 20 blocks
+131 -- 151: elapsed time = 5256s = 87.60% of 6000 target = avg solvetime = 4.38 minutes over 20 blocks
+111 -- 131: elapsed time = 5925s = 98.75% of 6000 target = avg solvetime = 4.94 minutes over 20 blocks
+91 -- 111: elapsed time = 5086s = 84.77% of 6000 target = avg solvetime = 4.24 minutes over 20 blocks
+71 -- 91: elapsed time = 4811s = 80.18% of 6000 target = avg solvetime = 4.01 minutes over 20 blocks
+51 -- 71: elapsed time = 7545s = 125.75% of 6000 target = avg solvetime = 6.29 minutes over 20 blocks
+31 -- 51: elapsed time = 121s = 2.02% of 6000 target = avg solvetime = 0.10 minutes over 20 blocks --- (v12 FORK) ---
+11 -- 31: elapsed time = 78s = 1.30% of 6000 target = avg solvetime = 0.07 minutes over 20 blocks

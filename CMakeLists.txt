@@ -177,6 +177,15 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+# Update and init submodules by default
+if(NOT MANUAL_SUBMODULES)
+  find_package(Git)
+  if(GIT_FOUND)
+    message(STATUS "Initializing submodules")
+    execute_process(COMMAND git "submodule" "update" "--init" "--recursive" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+endif()
+
 if(NOT MANUAL_SUBMODULES)
   find_package(Git)
   if(GIT_FOUND)
@@ -244,7 +253,7 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
-option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
+option(BUILD_DOCUMENTATION "Build the Doxygen documentation." OFF)
 option(BUILD_TESTS "Build tests." OFF)
 
 # Check whether we're on a 32-bit or 64-bit system
@@ -487,6 +496,14 @@ ExternalProject_Add(generate_translations_header
   INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 add_subdirectory(external)
+
+# Final setup for miniupnpc
+if(UPNP_STATIC OR IOS)
+  add_definitions("-DUPNP_STATIC")
+else()
+  add_definitions("-DUPNP_DYNAMIC")
+  include_directories(${UPNP_INCLUDE})
+endif()
 
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})

@@ -472,8 +472,8 @@ namespace cryptonote
       if (boost::filesystem::exists(old_files / "blockchain.bin"))
       {
         MWARNING("Found old-style blockchain.bin in " << old_files.string());
-        MWARNING("Monero now uses a new format. You can either remove blockchain.bin to start syncing");
-        MWARNING("the blockchain anew, or use monero-blockchain-export and monero-blockchain-import to");
+        MWARNING("Wownero now uses a new format. You can either remove blockchain.bin to start syncing");
+        MWARNING("the blockchain anew, or use wownero-blockchain-export and wownero-blockchain-import to");
         MWARNING("convert your existing blockchain.bin to the new format. See README.md for instructions.");
         return false;
       }
@@ -783,6 +783,44 @@ namespace cryptonote
       return false;
     }
 
+    // resolve outPk references in rct txes
+    // outPk aren't the only thing that need resolving for a fully resolved tx,
+    // but outPk (1) are needed now to check range proof semantics, and
+    // (2) do not need access to the blockchain to find data
+    if (tx.version >= 2)
+    {
+      rct::rctSig &rv = tx.rct_signatures;
+      if (rv.type != rct::RCTTypeBulletproof){  
+      if (rv.outPk.size() != tx.vout.size())
+      {
+        LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+      for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
+        rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
+      const bool bulletproof = rct::is_rct_bulletproof(rv.type);
+      if (bulletproof)
+      {
+        if (rct::n_bulletproof_v1_amounts(rv.p.bulletproofs) != tx.vout.size())
+        {
+          LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad bulletproofs size in tx " << tx_hash << ", rejected");
+          tvc.m_verifivation_failed = true;
+          return false;
+        }
+        size_t idx = 0;
+        for (size_t n = 0; n < rv.p.bulletproofs.size(); ++n)
+        {
+          CHECK_AND_ASSERT_MES(rv.p.bulletproofs[n].L.size() >= 6, false, "Bad bulletproofs L size"); // at least 64 bits
+          const size_t n_amounts = rct::n_bulletproof_v1_amounts(rv.p.bulletproofs[n]);
+          CHECK_AND_ASSERT_MES(idx + n_amounts <= rv.outPk.size(), false, "Internal error filling out V");
+          rv.p.bulletproofs[n].V.clear();
+          for (size_t i = 0; i < n_amounts; ++i)
+            rv.p.bulletproofs[n].V.push_back(rv.outPk[idx++].mask);
+        }
+      }
+     }
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -841,6 +879,7 @@ namespace cryptonote
           tx_info[n].result = false;
           break;
         case rct::RCTTypeSimple:
+        case rct::RCTTypeSimpleBulletproof:
           if (!rct::verRctSemanticsSimple(rv))
           {
             MERROR_VER("rct signature semantics check failed");
@@ -851,6 +890,7 @@ namespace cryptonote
           }
           break;
         case rct::RCTTypeFull:
+        case rct::RCTTypeFullBulletproof:
           if (!rct::verRct(rv, true))
           {
             MERROR_VER("rct signature semantics check failed");
@@ -1584,14 +1624,47 @@ namespace cryptonote
         main_message = "The daemon is running offline and will not attempt to sync to the Monero network.";
       else
         main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
+      MGINFO_RED(ENDL <<
+      "\n \n"
+      "                                     .::::.                                 \n"
+      "                                   .::::::::.                               \n"
+      "                                   :::::::::::                              \n"
+      "                                   ':::::::::::..                           \n"
+      "                                    :::::::::::::::'                        \n"
+      "                                     ':::::::::::.                          \n"
+      "                                       .::::::::::::::'                     \n"
+      "                                     .:::::::::::...                        \n"
+      "                                    ::::::::::::::''                        \n"
+      "                        .:::.       '::::::::''::::                         \n"
+      "                      .::::::::.      ':::::'  '::::                        \n"
+      "                     .::::':::::::.    :::::    '::::.                      \n"
+      "                   .:::::' ':::::::::. :::::      ':::.                     \n"
+      "                 .:::::'     ':::::::::.:::::       '::.                    \n"
+      "               .::::''         '::::::::::::::       '::.                   \n"
+      "              .::''              '::::::::::::         :::...               \n"
+      "           ..::::                  ':::::::::'        .:' ''''              \n"
+      "        ..''''':'                    ':::::.'                               \n"
+      "  ______   ______           ______                           _              \n"
+      " |  ____| |  ____|         |  ____|                         (_)             \n"
+      " | |__    | |__ ___  _ __  | |__ __ _ _ __  _ __   ___ _ __  _ _ __   __ _  \n"
+      " |  __|   |  __/ _ || '__| |  __/ _` | '_ || '_ | / _ | '_ || | '_ | / _` | \n"
+      " | |      | | | (_) | |    | | | (_| | |_) | |_) |  __/ | | | | | | | (_| | \n"
+      " |_|      |_|  |___/|_|    |_|  |__,_| .__/| .__/|____|_| |_|_|_| |_||__, | \n"
+      "                                     | |   | |                        __/ | \n"
+      "                                     |_|   |_|                       |___/  \n"
+      "\n \n" << ENDL);
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << main_message << ENDL
+        << ENDL
+        << "Caution: Wownero is highly experimental software compiled by a ragtag team of stoners with as much" << ENDL
+        << "skill as Verge developers. Storing your life savings in WOW is probably not a good idea." << ENDL
         << ENDL
         << "You can set the level of process detailization through \"set_log <level|categories>\" command," << ENDL
         << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)." << ENDL
         << ENDL
-        << "Use the \"help\" command to see the list of available commands." << ENDL
-        << "Use \"help <command>\" to see a command's documentation." << ENDL
+        << "Use the \"help\" command to see a simplified list of available commands." << ENDL
+        << "Use the \"help_advanced\" command to see an advanced list of available commands." << ENDL        
+        << "Use \"help_advanced <command>\" to see a command's documentation." << ENDL
         << "**********************************************************************" << ENDL);
       m_starter_message_showed = true;
     }
@@ -1848,7 +1921,7 @@ namespace cryptonote
       MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
       if (p < threshold)
       {
-        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
+        MDEBUG("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Wownero network or under attack. Or it could be just sheer bad luck.");
 
         std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
         if (block_rate_notify)
