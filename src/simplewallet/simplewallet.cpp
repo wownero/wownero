@@ -9372,8 +9372,15 @@ bool simple_wallet::churn(const std::vector<std::string> &args_)
   int churn_number, pause_time, i;
   srand (time(NULL)); // seed RNG with current time
   churn_number = rand()%(8 + 1 - 2) + 2; // churn between 2 to 8 times
-  pause_time = rand()%(120 + 1 - 60) + 60; // wait between 1  to 2 hours per interval
-  float total_time = static_cast<float>(churn_number*pause_time)/60; // calculate how long churning will take in hours
+
+  std::stack<int> pauses;
+  float total_time = 0;
+  // no pause for the last churn
+  for (i = 1; i <= churn_number - 1; ++i) {
+    pause_time = rand()%(120 + 1 - 60) + 60; // wait between 1 to 2 hours per interval
+    pauses.push(pause_time);
+    total_time += static_cast<float>(pause_time)/60; // calculate how long churning will take in hours
+  }
 
   // Calculate fee
   float churn_fee = m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE) ? static_cast<float>(churn_number * 0.015) : static_cast<float>(churn_number * 0.032654); // usual 2/2 tx fee
@@ -9420,7 +9427,8 @@ bool simple_wallet::churn(const std::vector<std::string> &args_)
     else 
     {
       message_writer() << tr("\nInterval pause, please wait...\n");
-      sleep(pause_time*60);
+      sleep(pauses.top()*60);
+      pauses.pop();
     }
   }
 
