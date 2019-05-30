@@ -258,10 +258,10 @@ namespace cryptonote {
   // LWMA difficulty algorithm
   // Background:  https://github.com/zawy12/difficulty-algorithms/issues/3
   // Copyright (c) 2017-2018 Zawy
-  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
+  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
   
-    uint64_t T = DIFFICULTY_TARGET_V2;
-    uint64_t N = DIFFICULTY_WINDOW_V2;
+    const int64_t T = static_cast<int64_t>(target_seconds);
+    size_t N = DIFFICULTY_WINDOW_V2;
     if (timestamps.size() < 4) { 
       return 1; 
     } else if ( timestamps.size() < N+1 ) { 
@@ -273,17 +273,17 @@ namespace cryptonote {
     const double adjust = 0.998;
     const double k = N * (N + 1) / 2;
     double LWMA(0), sum_inverse_D(0), harmonic_mean_D(0), nextDifficulty(0);
-    uint64_t solveTime(0);
+    int64_t solveTime(0);
     uint64_t difficulty(0), next_difficulty(0);
-    for (uint64_t i = 1; i <= N; i++) {
-      solveTime = static_cast<uint64_t>(timestamps[i]) - static_cast<uint64_t>(timestamps[i - 1]);
-      solveTime = std::min<uint64_t>((T * 7), std::max<uint64_t>(solveTime, (-7 * T)));
+    for (size_t i = 1; i <= N; i++) {
+      solveTime = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i - 1]);
+      solveTime = std::min<int64_t>((T * 7), std::max<int64_t>(solveTime, (-7 * T)));
       difficulty = static_cast<uint64_t>(cumulative_difficulties[i] - cumulative_difficulties[i - 1]);
-      LWMA += (uint64_t)(solveTime * i) / k;
+      LWMA += (int64_t)(solveTime * i) / k;
       sum_inverse_D += 1 / static_cast<double>(difficulty);
     }
     harmonic_mean_D = N / sum_inverse_D;
-    if (static_cast<uint64_t>(boost::math::round(LWMA)) < T / 20)
+    if (static_cast<int64_t>(boost::math::round(LWMA)) < T / 20)
       LWMA = static_cast<double>(T / 20);
 
     nextDifficulty = harmonic_mean_D * T / LWMA * adjust;
@@ -294,20 +294,20 @@ namespace cryptonote {
   // LWMA-2
   difficulty_type next_difficulty_v3(std::vector<uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties) {
   
-    uint64_t  T = DIFFICULTY_TARGET_V2;
-    uint64_t  N = DIFFICULTY_WINDOW_V2;
-    uint64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
+    int64_t  T = DIFFICULTY_TARGET_V2;
+    int64_t  N = DIFFICULTY_WINDOW_V2;
+    int64_t  L(0), ST, sum_3_ST(0), next_D, prev_D;
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= static_cast<uint64_t>(N+1) );
-    for ( uint64_t i = 1; i <= N; i++ ) {  
-      ST = static_cast<uint64_t>(timestamps[i]) - static_cast<uint64_t>(timestamps[i-1]);
+    for ( int64_t i = 1; i <= N; i++ ) {
+      ST = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i-1]);
       ST = std::max(-4*T, std::min(ST, 6*T));
       L +=  ST * i ; 
       if ( i > N-3 ) { 
         sum_3_ST += ST; 
       } 
     }
-    next_D = (static_cast<uint64_t>(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
-    prev_D = static_cast<uint64_t>(cumulative_difficulties[N] - cumulative_difficulties[N-1]);
+    next_D = (static_cast<int64_t>(cumulative_difficulties[N] - cumulative_difficulties[0])*T*(N+1)*99)/(100*2*L);
+    prev_D = static_cast<int64_t>(cumulative_difficulties[N] - cumulative_difficulties[N-1]);
     next_D = std::max((prev_D*67)/100, std::min(next_D, (prev_D*150)/100));
     if ( sum_3_ST < (8*T)/10) { 
       next_D = std::max(next_D,(prev_D*108)/100); 
