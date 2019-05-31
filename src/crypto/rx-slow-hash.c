@@ -209,11 +209,11 @@ static void rx_initdata(randomx_cache *rs_cache, const int miners) {
     CTHR_THREAD_TYPE *st;
     si = malloc(miners * sizeof(seedinfo));
     if (si == NULL)
-      local_abort("Couldn't allocate RandomX mining threadinfo");
+      local_abort("Couldn't allocate RandomWOW mining threadinfo");
     st = malloc(miners * sizeof(CTHR_THREAD_TYPE));
     if (st == NULL) {
       free(si);
-      local_abort("Couldn't allocate RandomX mining threadlist");
+      local_abort("Couldn't allocate RandomWOW mining threadlist");
     }
     for (i=0; i<miners-1; i++) {
       si[i].si_cache = rs_cache;
@@ -251,7 +251,7 @@ static void rx_seedhash_int(rx_state *rx_sp, const uint64_t height, const char *
       if (cache == NULL)
         cache = randomx_alloc_cache(flags);
       if (cache == NULL)
-        local_abort("Couldn't allocate RandomX cache");
+        local_abort("Couldn't allocate RandomWOW cache");
     }
     randomx_init_cache(cache, hash, 32);
     if (miners && rx_dataset != NULL)
@@ -295,7 +295,7 @@ void rx_alt_slowhash(const uint64_t mainheight, const uint64_t seedheight, const
       rx_vm = randomx_create_vm(flags, rx_sp->rs_cache, NULL);
     }
     if (rx_vm == NULL)
-      local_abort("Couldn't allocate RandomX VM");
+      local_abort("Couldn't allocate RandomWOW VM");
   }
   randomx_calculate_hash(rx_vm, data, length, hash);
 }
@@ -333,7 +333,7 @@ void rx_slow_hash(const void *data, size_t length, char *hash, int miners) {
       rx_vm = randomx_create_vm(flags, rx_sp->rs_cache, rx_dataset);
     }
     if (rx_vm == NULL)
-      local_abort("Couldn't allocate RandomX VM");
+      local_abort("Couldn't allocate RandomWOW VM");
   }
   randomx_calculate_hash(rx_vm, data, length, hash);
 }
