@@ -40,7 +40,7 @@ Dates are provided in the format YYYY-MM-DD.
 | 53666                          | 2018-10-06 | Cool Cage                | v0.3.0.0               | v0.3.1.3                  | Cryptonight variant 2, LWMA v2, ringsize = 22, MMS
 | 63469                          | 2018-11-11 | Dank Doge               | v0.4.0.0               | v0.4.0.0                  | LWMA v4
 | 81769                          | 2019-02-19 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.2                  | Cryptonight/wow, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
-| XXXXX                          | 2019-XX-XX | F For Fappening    | v0.6.0.0               | v0.6.0.0                  | New PoW based on RandomX, new block weight algorithm, slightly more efficient RingCT format
+| 114969                          | 2019-06-14 | F For Fappening    | v0.6.0.0               | v0.6.0.0                  | RandomWOW, new block weight algorithm, slightly more efficient RingCT format
 
 X's indicate that these details have not been determined as of commit date.
 
