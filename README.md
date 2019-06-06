@@ -21,8 +21,12 @@ Blockchain Explorers
 - https://explore.wownero.com
 - https://explorer.wowkira.com
 - http://explorer.wowne.ro
-- http://wow4edxxxudchgj7.onion
+- http://dr4koizzq4ixyxqkz7qagx7bopt4gnrbtrp7cbqcji2fkp4mnve3wrqd.onion
 - http://wow5eqtzqvsg5jctqzg5g7uk3u62sfqiacj5x6lo4by7bvnj6jkvubyd.onion
+
+Public Nodes
+- node.wowne.ro:34568
+- wowkira.com:34568
 
 ## Introduction
 
@@ -123,12 +127,28 @@ Once node is synced to network, run the CLI wallet by entering:
 
 Type `help` in CLI wallet to see standard commands (for advanced options, type `help_advanced`).
 
+## Tor Anonymity Network
+
+* Install [Tor Browser](https://www.torproject.org/download/)
+* Open `torrc` file in a text editor ([installation directory]/Browser/TorBrowser/Data/Tor/torrc) and add hidden service information as follows:
+
+```
+HiddenServiceDir [installation directory]/Browser/TorBrowser/Data/Tor/wow_node
+HiddenServiceVersion 3
+HiddenServicePort 44469 127.0.0.1:44469
+```
+* Save `torrc` file and restart Tor Browser (keep open)
+* Change directory to the `wow_node` folder, open `hostname` file, and copy your node's ".onion" address
+* Start wownerod with the following parameters:
+
+```
+./wownerod --proxy tor,127.0.0.1:9150,25 --anonymous-inbound YOUR_NODE_ADDRESS.onion,127.0.0.1:44469,25 --add-peer wo5dkrgua62whkitjqmj6wzlp3hnth2w3lau2oj675rmaeexzy2q6cid.onion:44469
+```
+For more information, check out [ANONYMITY_NETWORKS](https://github.com/wownero/wownero/blob/master/ANONYMITY_NETWORKS.md).
+
 ## Wownero Graphical Wallets
 
 * [Wownero-Light-Wallet](https://github.com/wownero/Wownero-Light-Wallet)
-
-![](https://light.wownero.com/wowlight.png)
-
 
 * [Wownerujo Android Wallet](https://github.com/wownero/wownerujo)
 
@@ -137,7 +157,7 @@ Type `help` in CLI wallet to see standard commands (for advanced options, type `
 
 ## Donating to Wownero Project
 
-Developers are volunteers doing this mostly for shits and giggles. If you would like to support our shenanigans and stimulant addictions, please consider donating to [WFS proposals](https://funding.wownero.com/proposals) or the [dev slush fund](https://funding.wownero.com/donate).
+Developers are volunteers doing this mostly for shits and giggles. If you would like to support our shenanigans and stimulant addictions, please consider donating to [WFS proposals](https://funding.wownero.com/proposals) or the [dev slush fund](https://dev-funding.webui.wowkira.com).
 
 Donations may also be sent to: 
 
