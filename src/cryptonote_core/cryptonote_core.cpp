@@ -833,7 +833,7 @@ namespace cryptonote
     if (tx.version >= 2)
     {
       rct::rctSig &rv = tx.rct_signatures;
-      if (rv.type != rct::RCTTypeBulletproof){  
+      if (!rct::is_rct_new_bulletproof(rv.type)){
       if (rv.outPk.size() != tx.vout.size())
       {
         LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");

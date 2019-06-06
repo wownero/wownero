@@ -164,7 +164,7 @@ namespace cryptonote
       if (!base_only)
       {
         const bool bulletproof = rct::is_rct_bulletproof(rv.type);
-        if (bulletproof && rv.type == rct::RCTTypeBulletproof)
+        if (rct::is_rct_new_bulletproof(rv.type))
         {
           if (rv.p.bulletproofs.size() != 1)
           {
@@ -430,6 +430,12 @@ namespace cryptonote
     const rct::rctSig &rv = tx.rct_signatures;
     if (!rct::is_rct_bulletproof(rv.type))
       return blob_size;
+    const size_t n_outputs = tx.vout.size();
+    if (n_outputs <= 2)
+      return blob_size;
+    if (rct::is_rct_old_bulletproof(rv.type))
+      return blob_size;
+    const uint64_t bp_base = 368;
     const size_t n_padded_outputs = rct::n_bulletproof_max_amounts(rv.p.bulletproofs);
     uint64_t bp_clawback = get_transaction_weight_clawback(tx, n_padded_outputs);
     CHECK_AND_ASSERT_THROW_MES_L1(bp_clawback <= std::numeric_limits<uint64_t>::max() - blob_size, "Weight overflow");

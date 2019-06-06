@@ -228,6 +228,11 @@ namespace rct {
         }
     }
 
+    bool is_rct_new_bulletproof(int type)
+    {
+      return is_rct_bulletproof(type) && !is_rct_old_bulletproof(type);
+    }
+
     bool is_rct_borromean(int type)
     {
         switch (type)

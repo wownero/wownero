@@ -575,6 +575,7 @@ namespace rct {
     bool is_rct_simple(int type);
     bool is_rct_bulletproof(int type);
     bool is_rct_old_bulletproof(int type);
+    bool is_rct_new_bulletproof(int type);
     bool is_rct_borromean(int type);
 
     static inline const rct::key &pk2rct(const crypto::public_key &pk) { return (const rct::key&)pk; }
