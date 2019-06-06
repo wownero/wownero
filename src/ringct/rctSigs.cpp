@@ -1099,7 +1099,7 @@ namespace rct {
             tools::threadpool::waiter waiter;
             std::deque<bool> results(bulletproof ? rv.p.bulletproofs.size() : rv.outPk.size(), false);
             DP("range proofs verified?");
-            if (bulletproof && rv.type == RCTTypeBulletproof)
+            if (rct::is_rct_new_bulletproof(rv.type))
             {
                 for (size_t i = 0; i < rv.p.bulletproofs.size(); i++)
                     tpool.submit(&waiter, [&, i] { results[i] = verBulletproof(rv.p.bulletproofs[i]); });
@@ -1232,7 +1232,7 @@ namespace rct {
         for (const rctSig *rvp: rvv)
         {
           const rctSig &rv = *rvp;
-        if (rv.type != RCTTypeBulletproof){
+        if (!rct::is_rct_new_bulletproof(rv.type)){
         if (!proofs.empty() && !verBulletproof_old(proofs))
         {
           LOG_PRINT_L1("Aggregate range proof verified failed");

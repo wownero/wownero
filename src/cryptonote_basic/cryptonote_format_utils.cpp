@@ -146,7 +146,7 @@ namespace cryptonote
       if (!base_only)
       {
         const bool bulletproof = rct::is_rct_bulletproof(rv.type);
-        if (bulletproof && rv.type == rct::RCTTypeBulletproof)
+        if (rct::is_rct_new_bulletproof(rv.type))
         {
           if (rv.p.bulletproofs.size() != 1)
           {
@@ -415,7 +415,7 @@ namespace cryptonote
     const size_t n_outputs = tx.vout.size();
     if (n_outputs <= 2)
       return blob_size;
-    if (rv.type != rct::RCTTypeBulletproof)
+    if (rct::is_rct_old_bulletproof(rv.type))
       return blob_size;
     const uint64_t bp_base = 368;
     const size_t n_padded_outputs = rct::n_bulletproof_max_amounts(rv.p.bulletproofs);
