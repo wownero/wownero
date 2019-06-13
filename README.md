@@ -27,6 +27,7 @@ Blockchain Explorers
 Public Nodes
 - node.wowne.ro:34568
 - wowkira.com:34568
+- wow.aluisyo.network:34568
 
 ## Introduction
 
