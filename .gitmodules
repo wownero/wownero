@@ -15,3 +15,4 @@
 [submodule "external/randomwow"]
 	path = external/randomwow
 	url = https://github.com/wownero/RandomWOW
+	branch = master
