@@ -285,6 +285,7 @@ namespace cryptonote
 
       cnx.height = cntxt.m_remote_blockchain_height;
       cnx.pruning_seed = cntxt.m_pruning_seed;
+      cnx.address_type = (uint8_t)cntxt.m_remote_address.get_type_id();
 
       connections.push_back(cnx);
 
@@ -809,12 +810,27 @@ namespace cryptonote
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b.block = t_serializable_object_to_blob(b);
     fluffy_response.current_blockchain_height = arg.current_blockchain_height;
+    std::vector<bool> seen(b.tx_hashes.size(), false);
     for(auto& tx_idx: arg.missing_tx_indices)
     {
       if(tx_idx < b.tx_hashes.size())
       {
         MDEBUG("  tx " << b.tx_hashes[tx_idx]);
+        if (seen[tx_idx])
+        {
+          LOG_ERROR_CCONTEXT
+          (
+            "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
+            << ", request is asking for duplicate tx "
+            << ", tx index = " << tx_idx << ", block tx count " << b.tx_hashes.size()
+            << ", block_height = " << arg.current_blockchain_height
+            << ", dropping connection"
+          );
+          drop_connection(context, true, false);
+          return 1;
+        }
         txids.push_back(b.tx_hashes[tx_idx]);
+        seen[tx_idx] = true;
       }
       else
       {
@@ -914,6 +930,17 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_request_get_objects(int command, NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_GET_OBJECTS (" << arg.blocks.size() << " blocks, " << arg.txs.size() << " txes)");
+
+    if (arg.blocks.size() + arg.txs.size() > CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT)
+      {
+        LOG_ERROR_CCONTEXT(
+            "Requested objects count is too big ("
+            << arg.blocks.size() + arg.txs.size() << ") expected not more then "
+            << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT);
+        drop_connection(context, false, false);
+        return 1;
+      }
+
     NOTIFY_RESPONSE_GET_OBJECTS::request rsp;
     if(!m_core.handle_get_objects(arg, rsp, context))
     {
@@ -2369,7 +2396,7 @@ skip:
       MINFO("Target height decreasing from " << previous_target << " to " << target);
       m_core.set_target_blockchain_height(target);
       if (target == 0 && context.m_state > cryptonote_connection_context::state_before_handshake && !m_stopping)
-        MCWARNING("global", "monerod is now disconnected from the network");
+        MCWARNING("global", "wownerod is now disconnected from the network");
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);

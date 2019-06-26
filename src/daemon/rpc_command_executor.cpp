@@ -46,6 +46,19 @@
 namespace daemonize {
 
 namespace {
+  const char *get_address_type_name(epee::net_utils::address_type address_type)
+  {
+    switch (address_type)
+    {
+      default:
+      case epee::net_utils::address_type::invalid: return "invalid";
+      case epee::net_utils::address_type::ipv4: return "IPv4";
+      case epee::net_utils::address_type::ipv6: return "IPv6";
+      case epee::net_utils::address_type::i2p: return "I2P";
+      case epee::net_utils::address_type::tor: return "Tor";
+    }
+  }
+
   void print_peer(std::string const & prefix, cryptonote::peer const & peer)
   {
     time_t now;
@@ -559,8 +572,7 @@ bool t_rpc_command_executor::mining_status() {
     uint64_t daily = 86400ull / mres.block_target * mres.block_reward * ratio;
     uint64_t monthly = 86400ull / mres.block_target * 30.5 * mres.block_reward * ratio;
     uint64_t yearly = 86400ull / mres.block_target * 356 * mres.block_reward * ratio;
-    tools::msg_writer() << "Expected: " << cryptonote::print_money(daily) << " monero daily, "
-        << cryptonote::print_money(monthly) << " monero monthly, " << cryptonote::print_money(yearly) << " yearly";
+    tools::msg_writer() << "Possible reward: " << cryptonote::print_money(monthly) << " WOW monthly, " << cryptonote::print_money(yearly) << " WOW yearly";
   }
 
   return true;
@@ -590,6 +602,7 @@ bool t_rpc_command_executor::print_connections() {
   }
 
   tools::msg_writer() << std::setw(30) << std::left << "Remote Host"
+      << std::setw(8) << "Type"
       << std::setw(6) << "SSL"
       << std::setw(20) << "Peer id"
       << std::setw(20) << "Support Flags"      
@@ -610,6 +623,7 @@ bool t_rpc_command_executor::print_connections() {
     tools::msg_writer() 
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
+     << std::setw(8) << (get_address_type_name((epee::net_utils::address_type)info.address_type))
      << std::setw(6) << (info.ssl ? "yes" : "no")
      << std::setw(20) << epee::string_tools::pad_string(info.peer_id, 16, '0', true)
      << std::setw(20) << info.support_flags

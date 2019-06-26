@@ -1081,11 +1081,11 @@ void BlockchainLMDB::add_tx_amount_output_indices(const uint64_t tx_id,
 
   int result = 0;
 
-  int num_outputs = amount_output_indices.size();
+  size_t num_outputs = amount_output_indices.size();
 
   MDB_val_set(k_tx_id, tx_id);
   MDB_val v;
-  v.mv_data = (void *)amount_output_indices.data();
+  v.mv_data = num_outputs ? (void *)amount_output_indices.data() : (void*)"";
   v.mv_size = sizeof(uint64_t) * num_outputs;
   // LOG_PRINT_L1("tx_outputs[tx_hash] size: " << v.mv_size);
 
@@ -1468,7 +1468,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
         mdb_env_close(m_env);
         m_open = false;
         MFATAL("Existing lmdb database needs to be converted, which cannot be done on a read-only database.");
-        MFATAL("Please run monerod once to convert the database.");
+        MFATAL("Please run wownerod once to convert the database.");
         return;
       }
       // Note that there was a schema change within version 0 as well.
@@ -1960,7 +1960,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
 
   TIME_MEASURE_START(t);
 
-  size_t n_total_records = 0, n_prunable_records = 0, n_pruned_records = 0;
+  size_t n_total_records = 0, n_prunable_records = 0, n_pruned_records = 0, commit_counter = 0;
   uint64_t n_bytes = 0;
 
   mdb_txn_safe txn;
@@ -2063,6 +2063,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
           {
             MDEBUG("Pruning at height " << block_height << "/" << blockchain_height);
             ++n_pruned_records;
+            ++commit_counter;
             n_bytes += k.mv_size + v.mv_size;
             result = mdb_cursor_del(c_txs_prunable, 0);
             if (result)
@@ -2072,6 +2073,25 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
         result = mdb_cursor_del(c_txs_prunable_tip, 0);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to delete transaction tip data: ", result).c_str()));
+
+        if (mode != prune_mode_check && commit_counter >= 4096)
+        {
+          MDEBUG("Committing txn at checkpoint...");
+          txn.commit();
+          result = mdb_txn_begin(m_env, NULL, 0, txn);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+          result = mdb_cursor_open(txn, m_txs_pruned, &c_txs_pruned);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_pruned: ", result).c_str()));
+          result = mdb_cursor_open(txn, m_txs_prunable, &c_txs_prunable);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_prunable: ", result).c_str()));
+          result = mdb_cursor_open(txn, m_txs_prunable_tip, &c_txs_prunable_tip);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_prunable_tip: ", result).c_str()));
+          commit_counter = 0;
+        }
       }
     }
   }
@@ -2141,6 +2161,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
             result = mdb_cursor_del(c_txs_prunable, 0);
             if (result)
               throw0(DB_ERROR(lmdb_error("Failed to delete transaction prunable data: ", result).c_str()));
+            ++commit_counter;
           }
         }
       }
@@ -2156,6 +2177,34 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
             MERROR("Prunable data not found for unpruned height " << block_height << "/" << blockchain_height <<
                 ", seed " << epee::string_tools::to_string_hex(pruning_seed));
         }
+      }
+
+      if (mode != prune_mode_check && commit_counter >= 4096)
+      {
+        MDEBUG("Committing txn at checkpoint...");
+        txn.commit();
+        result = mdb_txn_begin(m_env, NULL, 0, txn);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_txs_pruned, &c_txs_pruned);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_pruned: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_txs_prunable, &c_txs_prunable);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_prunable: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_txs_prunable_tip, &c_txs_prunable_tip);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_prunable_tip: ", result).c_str()));
+        result = mdb_cursor_open(txn, m_tx_indices, &c_tx_indices);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to open a cursor for tx_indices: ", result).c_str()));
+        MDB_val val;
+        val.mv_size = sizeof(ti);
+        val.mv_data = (void *)&ti;
+        result = mdb_cursor_get(c_tx_indices, (MDB_val*)&zerokval, &val, MDB_GET_BOTH);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to restore cursor for tx_indices: ", result).c_str()));
+        commit_counter = 0;
       }
     }
     mdb_cursor_close(c_tx_indices);
