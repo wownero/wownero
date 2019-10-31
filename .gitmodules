@@ -12,3 +12,8 @@
 [submodule "external/trezor-common"]
 	path = external/trezor-common
 	url = https://github.com/trezor/trezor-common.git
+[submodule "external/RandomWOW"]
+	path = external/RandomWOW
+	url = https://github.com/wownero/RandomWOW
+        branch = 1.1.6-wow
+
