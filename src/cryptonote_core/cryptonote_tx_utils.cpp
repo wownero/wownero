@@ -698,7 +698,7 @@ namespace cryptonote
       }
       rx_slow_hash(main_height, seed_height, hash.data, bd.data(), bd.size(), res.data, miners, 0);
     } else {
-      const int pow_variant = b.major_version >= 13 ? 6 : b.major_version >= 11 && b.major_version <= 12 ? 4 : 2;
+      const int pow_variant = b.major_version >= 11 ? 4 : b.major_version >= 9 ? 2 : 1;
       crypto::cn_slow_hash(bd.data(), bd.size(), res, pow_variant, height);
     }
     return true;
