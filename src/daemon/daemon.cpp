@@ -34,7 +34,6 @@
 #include "misc_log_ex.h"
 #include "daemon/daemon.h"
 #include "rpc/daemon_handler.h"
-#include "rpc/zmq_server.h"
 
 #include "common/password.h"
 #include "common/util.h"
@@ -171,11 +170,10 @@ bool t_daemon::run(bool interactive)
     }
 
     cryptonote::rpc::DaemonHandler rpc_daemon_handler(mp_internals->core.get(), mp_internals->p2p.get());
-    cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler);
 
-    if (!zmq_rpc_disabled)
+    if (false)
     {
-      if (!zmq_server.addTCPSocket(zmq_rpc_bind_address, zmq_rpc_bind_port))
+      if (false)
       {
         LOG_ERROR(std::string("Failed to add TCP Socket (") + zmq_rpc_bind_address
             + ":" + zmq_rpc_bind_port + ") to ZMQ RPC Server");
@@ -190,7 +188,6 @@ bool t_daemon::run(bool interactive)
       }
 
       MINFO("Starting ZMQ server...");
-      zmq_server.run();
 
       MINFO(std::string("ZMQ server started at ") + zmq_rpc_bind_address
             + ":" + zmq_rpc_bind_port + ".");
@@ -208,9 +205,6 @@ bool t_daemon::run(bool interactive)
 
     if (rpc_commands)
       rpc_commands->stop_handling();
-
-    if (!zmq_rpc_disabled)
-      zmq_server.stop();
 
     for(auto& rpc : mp_internals->rpcs)
       rpc->stop();
