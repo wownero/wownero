@@ -1673,6 +1673,34 @@ namespace cryptonote
         main_message = "The daemon is running offline and will not attempt to sync to the Monero network.";
       else
         main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
+        MGINFO_MAGENTA(ENDL <<
+        "\n \n"
+        "           /       |           |            /    |        \n"
+        "           |       |            |          |      |       \n"
+        "           |       `.            |         |       |      \n"
+        "          `        |             |       ||       |      \n"
+        "           |       | /       /  |||   ____ ||       |     \n"
+        "            |      |/   ___~~          ~____| |     |     \n"
+        "             |       |__~                    ~__|    |     \n"
+        "              |_     |        ________  ______||   |     \n"
+        "                |     |______// _ ___ _ (__ W  |   |      \n"
+        "                 |      W ___)  ______ (____ O  |  /      \n"
+        " Ooh Wee!        /| |   O ____)/      ] (____ W  |_/      \n"
+        "                / /||   W ____)       | (___   /  |      \n"
+        "  Gaping       |   (   ______) |______/  // _/ /     |    \n"
+        "               |    |  |__   ||_________// (__/       |   \n"
+        "    Goatse    | |    |____)   `____  ___'             |   \n"
+        "             |   |_          ___|       /_          _/ |   \n"
+        "             |              /    |     |  |            |  \n"
+        "             |             |    /       |  |           |  \n"
+        "             |          / /    |         |   |          | \n"
+        "             |         / /     |___| |___/    |          | \n"
+        "            |           /         |   |       |         | \n"
+        "            |          |          |   |       |         | \n"
+        "            |          |          |   |       |         | \n"
+        "            |          |          |   |       |         | \n"
+        "            |                     L_|_/       |         | \n"
+        "\n \n" << ENDL);
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << main_message << ENDL
         << ENDL
