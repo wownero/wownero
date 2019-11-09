@@ -40,6 +40,7 @@ const hardfork_t mainnet_hard_forks[] = {
   { 12, 82069, 0, 1549318761 },
   { 13, 114969, 0, 1559292691 },
   { 14, 115257, 0, 1559292774 },
+  { 15, 160777, 0, 1573280497 },
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 const uint64_t mainnet_hard_fork_version_1_till = 1009826;
