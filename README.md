@@ -46,7 +46,7 @@ Dates are provided in the format YYYY-MM-DD.
 | 63469                          | 2018-11-11 | Dank Doge               | v0.4.0.0               | v0.4.0.0                  | LWMA v4
 | 81769                          | 2019-02-19 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.2                  | Cryptonight/wow, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
 | 114969                          | 2019-06-14 | F For Fappening    | v0.6.1.0               | v0.6.1.2                  | RandomWOW, new block weight algorithm, slightly more efficient RingCT format
-| XXXXX                          | 2019-11-XX | Gaping Goatse    | v0.7.0.0               | v0.7.0.0                  | Only allow >= 2 outputs, change to the block median used to calculate penalty, rct sigs in coinbase forbidden, 4 unlock time as protocol rule
+| 160777                          | 2019-11-20 | Gaping Goatse    | v0.7.0.0               | v0.7.0.0                  | Only allow >= 2 outputs, change to the block median used to calculate penalty, rct sigs in coinbase forbidden, 4 unlock time as protocol rule
 
 X's indicate that these details have not been determined as of commit date.
 * indicates estimate as of commit date
