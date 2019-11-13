@@ -68,7 +68,7 @@ Packages are available for
 
 * NixOS
 
-        nix-shell -p altcoins.wownero
+        nix-shell -p wownero
 
 * Ubuntu 18.04/Ubuntu 16.04/Debian 9/Debian 8 (amd64)
 
