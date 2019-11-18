@@ -20,14 +20,17 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 Blockchain Explorers
 - https://explore.wownero.com
 - https://explorer.wowkira.com
-- http://explorer.wowne.ro
-- http://dr4koizzq4ixyxqkz7qagx7bopt4gnrbtrp7cbqcji2fkp4mnve3wrqd.onion
+- https://explorer.wowne.ro
+- http://mk6s5cz7dudgvygg5ui6g67yhtzsk7tasnte7zbsgkx32d5o7dx42bqd.onion:8080
 - http://wow5eqtzqvsg5jctqzg5g7uk3u62sfqiacj5x6lo4by7bvnj6jkvubyd.onion
 
-Public Nodes
-- node.wowne.ro:34568
-- wowkira.com:34568
+Free Public Nodes
+- wow7dhbgiljnkspkzpjyy66auegbrye2ptfv4gucgbhireg5rrjza5ad.onion:34568
 - wow.aluisyo.network:34568
+
+[Node as a Service](https://monero.stackexchange.com/questions/11731/how-do-the-new-rpc-payment-options-for-monerod-work)
+- node.wowne.ro:34568 (0.25 credits/hash)
+- bzuwkwa3x64jni2u3mvcikkf3wtuxw3kdhmpsv4xqe4zuzaemllh5wyd.onion:34568 (0.25 credits/hash)
 
 ## Introduction
 
@@ -139,16 +142,23 @@ Type `help` in CLI wallet to see standard commands (for advanced options, type `
 ```
 HiddenServiceDir [installation directory]/Browser/TorBrowser/Data/Tor/wow_node
 HiddenServiceVersion 3
-HiddenServicePort 44469 127.0.0.1:44469
+HiddenServicePort 44568 127.0.0.1:44568
 ```
 * Save `torrc` file and restart Tor Browser (keep open)
 * Change directory to the `wow_node` folder, open `hostname` file, and copy your node's ".onion" address
 * Start wownerod with the following parameters:
 
 ```
-./wownerod --proxy tor,127.0.0.1:9150,25 --anonymous-inbound YOUR_NODE_ADDRESS.onion,127.0.0.1:44469,25 --add-peer wo5dkrgua62whkitjqmj6wzlp3hnth2w3lau2oj675rmaeexzy2q6cid.onion:44469
+./wownerod --tx-proxy tor,127.0.0.1:9150,10 --add-peer hdps3qwnusz64r7odvynmae6myc2uyvrsc2emap6636qeuzll72eouid.onion:44568 --anonymous-inbound YOUR_NODE_ADDRESS.onion:44568,127.0.0.1:44568,25
 ```
-For more information, check out [ANONYMITY_NETWORKS](https://github.com/wownero/wownero/blob/master/ANONYMITY_NETWORKS.md).
+
+### Access remote Tor node from CLI wallet
+
+```
+./wownero-wallet-cli --proxy 127.0.0.1:9150 --daemon-address wow7dhbgiljnkspkzpjyy66auegbrye2ptfv4gucgbhireg5rrjza5ad.onion:34568
+```
+
+Use port `9050` instead of `9150` if you installed Tor as a standalone daemon. For more information, check out [ANONYMITY_NETWORKS](https://github.com/wownero/wownero/blob/master/ANONYMITY_NETWORKS.md).
 
 ## Wownero Graphical Wallets
 
