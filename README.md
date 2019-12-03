@@ -3,6 +3,22 @@
 Copyright (c) 2014-2019 The Monero Project.   
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
+# CyberWOW
+An Android pruned full node for Wownero
+
+[<img src="https://f-droid.org/badge/get-it-on.png"
+      alt="Get it on F-Droid"
+      height="80">](https://f-droid.org/en/packages/org.wownero.cyberwow/)
+<a href='https://play.google.com/store/apps/details?id=org.wownero.cyberwow'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png' height='80'/></a>
+
+# Wownerujo
+An Android Wallet for Wownero
+
+[<img src="https://f-droid.org/badge/get-it-on.png"
+      alt="Get it on F-Droid"
+      height="80">](https://f-droid.org/packages/com.wownero.wownerujo/)
+<a href='https://play.google.com/store/apps/details?id=com.wownero.wownerujo'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png' height='80'/></a>
+
 ## Resources
 
 - Web: [wownero.org](http://wownero.org)
@@ -158,15 +174,6 @@ HiddenServicePort 44568 127.0.0.1:44568
 ```
 
 Use port `9050` instead of `9150` if you installed Tor as a standalone daemon. For more information, check out [ANONYMITY_NETWORKS](https://github.com/wownero/wownero/blob/master/ANONYMITY_NETWORKS.md).
-
-## Wownero Graphical Wallets
-
-* [Wownero-Light-Wallet](https://github.com/wownero/Wownero-Light-Wallet)
-
-* [Wownerujo Android Wallet](https://github.com/wownero/wownerujo)
-
-![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-1.png)
-![](https://fossdroid.com/images/screenshots/com.wownero.wownerujo/wownerujo-2.png)
 
 ## Donating to Wownero Project
 
