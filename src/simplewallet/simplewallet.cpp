@@ -5198,8 +5198,11 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
   if (is_background_mining_enabled)
   {
     // already active, nice
-    m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
-    m_wallet->rewrite(m_wallet_file, password);
+    if (setup == tools::wallet2::BackgroundMiningMaybe)
+    {
+      m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
+      m_wallet->rewrite(m_wallet_file, password);
+    }
     start_background_mining();
     return;
   }
@@ -5220,6 +5223,11 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
     }
     m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
     m_wallet->rewrite(m_wallet_file, password);
+    start_background_mining();
+  }
+  else
+  {
+    // the setting is already enabled, and the daemon is not mining yet, so start it
     start_background_mining();
   }
 }
