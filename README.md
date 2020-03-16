@@ -23,30 +23,22 @@ An Android Wallet for Wownero
 
 - Web: [wownero.org](http://wownero.org)
 - Twitter: [@w0wn3r0](https://twitter.com/w0wn3r0)
-- Discord: [discord.gg/sQt74ep](https://discord.gg/sQt74ep)
 - Reddit: [/r/wownero](https://www.reddit.com/r/wownero)
 - Mail: [wownero@protonmail.com](mailto:wownero@protonmail.com)
 - GitHub: [https://github.com/wownero/wownero](https://github.com/wownero/wownero)
 - IRC: [#wownero on Freenode](https://kiwiirc.com/client/irc.freenode.net/?nick=suchchatter|?#wownero)
 - Bitmessage Chan: wownero (`BM-2cSzWtrj2pzLva9GF1Jp2TYsnLjrnJpvba`)
-- Network stats: [https://freeboard.io/board/c8mM2c](https://freeboard.io/board/c8mM2c)
 - Wownero Funding System: [https://funding.wownero.com](https://funding.wownero.com)
 - Keybase Chat Group: [https://keybase.io/team/wownero](https://keybase.io/team/wownero)
 
 Blockchain Explorers
 - https://explore.wownero.com
 - https://explorer.wowkira.com
-- https://explorer.wowne.ro
-- http://mk6s5cz7dudgvygg5ui6g67yhtzsk7tasnte7zbsgkx32d5o7dx42bqd.onion:8080
 - http://wow5eqtzqvsg5jctqzg5g7uk3u62sfqiacj5x6lo4by7bvnj6jkvubyd.onion
 
 Free Public Nodes
 - wow7dhbgiljnkspkzpjyy66auegbrye2ptfv4gucgbhireg5rrjza5ad.onion:34568
 - wow.aluisyo.network:34568
-
-[Node as a Service](https://monero.stackexchange.com/questions/11731/how-do-the-new-rpc-payment-options-for-monerod-work)
-- node.wowne.ro:34568 (0.25 credits/hash)
-- bzuwkwa3x64jni2u3mvcikkf3wtuxw3kdhmpsv4xqe4zuzaemllh5wyd.onion:34568 (0.25 credits/hash)
 
 ## Introduction
 
@@ -65,7 +57,8 @@ Dates are provided in the format YYYY-MM-DD.
 | 63469                          | 2018-11-11 | Dank Doge               | v0.4.0.0               | v0.4.0.0                  | LWMA v4
 | 81769                          | 2019-02-19 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.2                  | Cryptonight/wow, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
 | 114969                          | 2019-06-14 | F For Fappening    | v0.6.1.0               | v0.6.1.2                  | RandomWOW, new block weight algorithm, slightly more efficient RingCT format
-| 160777                          | 2019-11-20 | Gaping Goatse    | v0.7.0.0               | v0.7.0.0                  | Only allow >= 2 outputs, change to the block median used to calculate penalty, rct sigs in coinbase forbidden, 4 unlock time as protocol rule
+| 160777                          | 2019-11-20 | Gaping Goatse    | v0.7.0.0               | v0.7.1.0                  | Only allow >= 2 outputs, change to the block median used to calculate penalty, rct sigs in coinbase forbidden, 4 unlock time as protocol rule
+| XXXXX                       | 2020-04-XX | XXXX  | v0.8.0.0               | v0.8.0.0                  | Dandelion++ support
 
 X's indicate that these details have not been determined as of commit date.
 * indicates estimate as of commit date
