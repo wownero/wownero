@@ -1681,6 +1681,28 @@ namespace cryptonote
         main_message = "The daemon is running offline and will not attempt to sync to the Monero network.";
       else
         main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
+      MGINFO_GREEN(ENDL <<
+        "\n \n"
+        "      ,'``.._   ,'``.                          \n"
+        "     :,--._:)|,:,._,.:       All Glory to      \n"
+        "     :`--,''   :`...';|      the HYPNO TOAD!   \n"
+        "      `,'       `---'  `.                      \n"
+        "      /                 :                      \n"
+        "     /                   |                     \n"
+        "   ,'                     :|.___,-.            \n"
+        "  `...,---'``````-..._    |:       |           \n"
+        "    (                 )   ;:    )   |  _,-.    \n"
+        "     `.              (   //          `'    |   \n"
+        "      :               `.//  )      )     , ;   \n"
+        "    ,-|`.            _,'/       )    ) ,' ,'   \n"
+        "   (  :`.`-..____..=:.-':     .     _,' ,'     \n"
+        "    `,'| ``--....-)='    `._,  |  ,') _ '``._  \n"
+        " _.-/ _ `.   (WOW)        /     )' ; / | |`-.' \n"
+        "`--(   `-:`.     `' ___..'  _,-'   |/   `.)    \n"
+        "    `-. `.`.``-----``--,  .'                   \n"
+        "      |/`.|`'        ,',');                    \n"
+        "          `         (/  (/                     \n"
+        "\n \n" << ENDL);
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << main_message << ENDL
         << ENDL
