@@ -2,8 +2,8 @@
 
 To run all tests, run:
 
-```bash
-cd /path/to/monero
+```
+cd /path/to/wownero
 make [-jn] debug-test # where n is number of compiler processes
 ```
 
@@ -11,11 +11,11 @@ To test a release build, replace `debug-test` with `release-test` in the previou
 
 # Core tests
 
-Core tests take longer than any other Monero tests, due to the high amount of computational work involved in validating core components.
+Core tests take longer than any other Wownero tests, due to the high amount of computational work involved in validating core components.
 
 Tests are located in `tests/core_tests/`, and follow a straightforward naming convention. Most cases cover core functionality (`block_reward.cpp`, `chaingen.cpp`, `rct.cpp`, etc.), while some cover basic security tests (`double_spend.cpp` & `integer_overflow.cpp`).
 
-To run only Monero's core tests (after building):
+To run only Wownero's core tests (after building):
 
 ```bash
 cd build/debug/tests/core_tests
@@ -34,7 +34,7 @@ Crypto tests are located under the `tests/crypto` directory.
 
 Tests correspond to components under `src/crypto/`. A quick comparison reveals the pattern, and new tests should continue the naming convention.
 
-To run only Monero's crypto tests (after building):
+To run only Wownero's crypto tests (after building):
 
 ```bash
 cd build/debug/tests/crypto
@@ -53,8 +53,8 @@ To run the same tests on a release build, replace `debug` with `release`.
 Functional tests are located under the `tests/functional` directory.
 
 First, run a regtest daemon in the offline mode and with a fixed difficulty:
-```bash
-monerod --regtest --offline --fixed-difficulty 1
+```
+wownerod --regtest --offline --fixed-difficulty 1
 ```
 Alternatively, you can run multiple daemons and let them connect with each other by using `--add-exclusive-node`. In this case, make sure that the same fixed difficulty is given to all the daemons.
 
@@ -75,7 +75,7 @@ An additional helper utility is provided `contrib/fuzz_testing/fuzz.sh`. AFL mus
 
 Hash tests exist under `tests/hash`, and include a set of target hashes in text files.
 
-To run only Monero's hash tests (after building):
+To run only Wownero's hash tests (after building):
 
 ```bash
 cd build/debug/tests/hash
@@ -96,7 +96,7 @@ To run the same tests on a release build, replace `debug` with `release`.
 
 Performance tests are located in `tests/performance_tests`, and test features for performance metrics on the host machine.
 
-To run only Monero's performance tests (after building):
+To run only Wownero's performance tests (after building):
 
 ```bash
 cd build/debug/tests/performance_tests
@@ -113,7 +113,7 @@ To run the same tests on a release build, replace `debug` with `release`.
 
 Unit tests are defined under the `tests/unit_tests` directory. Independent components are tested individually to ensure they work properly on their own.
 
-To run only Monero's unit tests (after building):
+To run only Wownero's unit tests (after building):
 
 ```bash
 cd build/debug/tests/unit_tests

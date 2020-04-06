@@ -60,9 +60,16 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "net/parse.h"
 
-#include <miniupnp/miniupnpc/miniupnpc.h>
-#include <miniupnp/miniupnpc/upnpcommands.h>
-#include <miniupnp/miniupnpc/upnperrors.h>
+// We have to look for miniupnpc headers in different places, dependent on if its compiled or external
+#ifdef UPNP_STATIC
+  #include <miniupnp/miniupnpc/miniupnpc.h>
+  #include <miniupnp/miniupnpc/upnpcommands.h>
+  #include <miniupnp/miniupnpc/upnperrors.h>
+#else
+  #include "miniupnpc.h"
+  #include "upnpcommands.h"
+  #include "upnperrors.h"
+#endif
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
@@ -601,33 +608,19 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET)
     {
-      full_addrs.insert("212.83.175.67:28080");
-      full_addrs.insert("5.9.100.248:28080");
-      full_addrs.insert("163.172.182.165:28080");
-      full_addrs.insert("195.154.123.123:28080");
-      full_addrs.insert("212.83.172.165:28080");
-      full_addrs.insert("192.110.160.146:28080");
     }
     else if (nettype == cryptonote::STAGENET)
     {
-      full_addrs.insert("162.210.173.150:38080");
-      full_addrs.insert("162.210.173.151:38080");
-      full_addrs.insert("192.110.160.146:38080");
     }
     else if (nettype == cryptonote::FAKECHAIN)
     {
     }
     else
     {
-      full_addrs.insert("107.152.130.98:18080");
-      full_addrs.insert("212.83.175.67:18080");
-      full_addrs.insert("5.9.100.248:18080");
-      full_addrs.insert("163.172.182.165:18080");
-      full_addrs.insert("161.67.132.39:18080");
-      full_addrs.insert("198.74.231.92:18080");
-      full_addrs.insert("195.154.123.123:18080");
-      full_addrs.insert("212.83.172.165:18080");
-      full_addrs.insert("192.110.160.146:18080");
+      full_addrs.insert("66.70.218.230:34567");
+      full_addrs.insert("34.209.48.213:34567");
+      full_addrs.insert("159.65.91.59:34567");
+      full_addrs.insert("138.197.31.246:34567");
     }
     return full_addrs;
   }

@@ -11,8 +11,6 @@ RUN set -ex && \
         g++ \
         make \
         pkg-config \
-        graphviz \
-        doxygen \
         git \
         curl \
         libtool-bin \
@@ -68,28 +66,6 @@ RUN set -ex \
     && make install
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
-# ZMQ
-ARG ZMQ_VERSION=v4.3.2
-ARG ZMQ_HASH=a84ffa12b2eb3569ced199660bac5ad128bff1f0
-RUN set -ex \
-    && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
-    && cd libzmq \
-    && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
-    && ./autogen.sh \
-    && ./configure --enable-static --disable-shared \
-    && make \
-    && make install \
-    && ldconfig
-
-# zmq.hpp
-ARG CPPZMQ_VERSION=v4.4.1
-ARG CPPZMQ_HASH=f5b36e563598d48fcc0d82e589d3596afef945ae
-RUN set -ex \
-    && git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
-    && cd cppzmq \
-    && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
-    && mv *.hpp /usr/local/include
-
 # Readline
 ARG READLINE_VERSION=8.0
 ARG READLINE_HASH=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
@@ -127,44 +103,6 @@ RUN set -ex \
     && make \
     && make install
 
-# Libusb
-ARG USB_VERSION=v1.0.22
-ARG USB_HASH=0034b2afdcdb1614e78edaa2a9e22d5936aeae5d
-RUN set -ex \
-    && git clone https://github.com/libusb/libusb.git -b ${USB_VERSION} \
-    && cd libusb \
-    && test `git rev-parse HEAD` = ${USB_HASH} || exit 1 \
-    && ./autogen.sh \
-    && ./configure --disable-shared \
-    && make \
-    && make install
-
-# Hidapi
-ARG HIDAPI_VERSION=hidapi-0.8.0-rc1
-ARG HIDAPI_HASH=40cf516139b5b61e30d9403a48db23d8f915f52c
-RUN set -ex \
-    && git clone https://github.com/signal11/hidapi -b ${HIDAPI_VERSION} \
-    && cd hidapi \
-    && test `git rev-parse HEAD` = ${HIDAPI_HASH} || exit 1 \
-    && ./bootstrap \
-    && ./configure --enable-static --disable-shared \
-    && make \
-    && make install
-
-# Protobuf
-ARG PROTOBUF_VERSION=v3.7.1
-ARG PROTOBUF_HASH=6973c3a5041636c1d8dc5f7f6c8c1f3c15bc63d6
-RUN set -ex \
-    && git clone https://github.com/protocolbuffers/protobuf -b ${PROTOBUF_VERSION} \
-    && cd protobuf \
-    && test `git rev-parse HEAD` = ${PROTOBUF_HASH} || exit 1 \
-    && git submodule update --init --recursive \
-    && ./autogen.sh \
-    && ./configure --enable-static --disable-shared \
-    && make \
-    && make install \
-    && ldconfig
-
 WORKDIR /src
 COPY . .
 
@@ -188,25 +126,25 @@ RUN set -ex && \
     rm -rf /var/lib/apt
 COPY --from=builder /src/build/release/bin /usr/local/bin/
 
-# Create monero user
-RUN adduser --system --group --disabled-password monero && \
-	mkdir -p /wallet /home/monero/.bitmonero && \
-	chown -R monero:monero /home/monero/.bitmonero && \
-	chown -R monero:monero /wallet
+# Create wownero user
+RUN adduser --system --group --disabled-password wownero && \
+	mkdir -p /wallet /home/wownero/.wownero && \
+	chown -R wownero:wownero /home/wownero/.wownero && \
+	chown -R wownero:wownero /wallet
 
 # Contains the blockchain
-VOLUME /home/monero/.bitmonero
+VOLUME /home/wownero/.wownero
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# monero-wallet-cli
+# wownero-wallet-cli
 VOLUME /wallet
 
-EXPOSE 18080
-EXPOSE 18081
+EXPOSE 34567
+EXPOSE 34568
 
-# switch to user monero
-USER monero
+# switch to user wownero
+USER wownero
 
-ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
+ENTRYPOINT ["wownerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=34567", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=34568", "--non-interactive", "--confirm-external-bind"]
 

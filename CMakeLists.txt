@@ -183,6 +183,15 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+# Update and init submodules by default
+if(NOT MANUAL_SUBMODULES)
+  find_package(Git)
+  if(GIT_FOUND)
+    message(STATUS "Initializing submodules")
+    execute_process(COMMAND git "submodule" "update" "--init" "--recursive" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+endif()
+
 if(NOT MANUAL_SUBMODULES)
   find_package(Git)
   if(GIT_FOUND)
@@ -202,7 +211,7 @@ if(NOT MANUAL_SUBMODULES)
     check_submodule(external/unbound)
     check_submodule(external/rapidjson)
     check_submodule(external/trezor-common)
-    check_submodule(external/randomx)
+    check_submodule(external/RandomWOW)
   endif()
 endif()
 
@@ -251,7 +260,7 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
-option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
+option(BUILD_DOCUMENTATION "Build the Doxygen documentation." OFF)
 option(BUILD_TESTS "Build tests." OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(DEFAULT_BUILD_DEBUG_UTILITIES ON)
@@ -455,6 +464,14 @@ ExternalProject_Add(generate_translations_header
   INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 add_subdirectory(external)
+
+# Final setup for miniupnpc
+if(UPNP_STATIC OR IOS)
+  add_definitions("-DUPNP_STATIC")
+else()
+  add_definitions("-DUPNP_DYNAMIC")
+  include_directories(${UPNP_INCLUDE})
+endif()
 
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE})
@@ -952,6 +969,9 @@ find_library(PGM_LIBRARY pgm)
 find_library(NORM_LIBRARY norm)
 find_library(PROTOLIB_LIBRARY protolib)
 find_library(SODIUM_LIBRARY sodium)
+
+set(ZMQ_INCLUDE_PATH zmq_dummy_include_path)
+set(ZMQ_LIB zmq_dummy_lib_2)
 
 if(NOT ZMQ_INCLUDE_PATH)
   message(FATAL_ERROR "Could not find required header zmq.h")
