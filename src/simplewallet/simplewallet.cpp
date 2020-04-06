@@ -6225,7 +6225,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_in_command = true;
     if (!user)
     {
-      const std::string speech = tr("I locked your Wownero wallet to protect you while you were away\nsee \"help_advanced set\" to configure/disable");
+      const std::string speech = tr("We’ll soon stage an attack on technology worthy of being chronicled in an anthem by Rush!");
       std::vector<std::pair<std::string, size_t>> lines = tools::split_string_by_width(speech, 45);
 
       size_t max_len = 0;
@@ -6236,11 +6236,24 @@ void simple_wallet::check_for_inactivity_lock(bool user)
       for (size_t i = 0; i < lines.size(); ++i)
         tools::msg_writer() << (i == 0 ? "/" : i == lines.size() - 1 ? "\\" : "|") << " " << lines[i].first << std::string(max_len - lines[i].second, ' ') << " " << (i == 0 ? "\\" : i == lines.size() - 1 ? "/" : "|");
       tools::msg_writer() << " " << std::string(n_u, '-') << std::endl <<
-          "        \\   (__)" << std::endl <<
-          "         \\  (oo)\\_______" << std::endl <<
-          "            (__)\\       )\\/\\" << std::endl <<
-          "                ||----w |" << std::endl <<
-          "                ||     ||" << std::endl <<
+          "                   _          " << std::endl <<
+          "                  ( )         " << std::endl <<
+          "                  J L         " << std::endl <<
+          "                  | |         " << std::endl <<
+          "                  J_L         " << std::endl <<
+          "               .-'-.-'-.      " << std::endl <<
+          "              /         |     " << std::endl <<
+          "             |           |    " << std::endl <<
+          "             |   .-------'._  " << std::endl <<
+          "             |  / /  '.' '.| " << std::endl <<
+          "             |  \\  @   @  // " << std::endl <<
+          "             |   '---------  " << std::endl <<
+          "             |    _______|    " << std::endl <<
+          "             |  .'-+-+-+|     " << std::endl <<
+          "             |  '.-+-+-+|     " << std::endl <<
+          "             |           |    " << std::endl <<
+          "             '-._______.-'    " << std::endl <<
+          "                              "<< std::endl <<
           "" << std::endl;
     }
     while (1)
