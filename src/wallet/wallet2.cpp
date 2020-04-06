@@ -11821,7 +11821,7 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
-  uint64_t approx_blockchain_height = m_nettype == TESTNET ? 0 : (time(NULL) - 1522624244)/322;
+  uint64_t approx_blockchain_height = m_nettype == TESTNET ? 0 : (time(NULL) - 1522624244)/317;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
