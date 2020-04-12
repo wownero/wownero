@@ -32,7 +32,6 @@
 #include "wallet_manager.h"
 #include "wallet.h"
 #include "common_defines.h"
-#include "common/dns_utils.h"
 #include "common/util.h"
 #include "common/updates.h"
 #include "version.h"
@@ -336,7 +335,7 @@ bool WalletManagerImpl::stopMining()
 
 std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const
 {
-    std::vector<std::string> addresses = tools::dns_utils::addresses_from_url(address, dnssec_valid);
+    std::vector<std::string> addresses;
     if (addresses.empty())
         return "";
     return addresses.front();

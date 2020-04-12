@@ -30,7 +30,6 @@
 
 #include "checkpoints.h"
 
-#include "common/dns_utils.h"
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h" // epee json include
 #include "serialization/keyvalue_serialization.h"
@@ -279,7 +278,6 @@ namespace cryptonote
     static const std::vector<std::string> stagenet_dns_urls = { 
     };
 
-    if (!tools::dns_utils::load_txt_records_from_dns(records, nettype == TESTNET ? testnet_dns_urls : nettype == STAGENET ? stagenet_dns_urls : dns_urls))
       return true; // why true ?
 
     for (const auto& record : records)

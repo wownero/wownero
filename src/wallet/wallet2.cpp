@@ -75,7 +75,6 @@ using namespace epee;
 #include "memwipe.h"
 #include "common/base58.h"
 #include "common/combinator.h"
-#include "common/dns_utils.h"
 #include "common/notify.h"
 #include "common/perf_timer.h"
 #include "ringct/rctSigs.h"
@@ -13443,7 +13442,7 @@ uint64_t wallet2::get_segregation_fork_height() const
     const uint64_t current_height = get_blockchain_current_height();
     uint64_t best_diff = std::numeric_limits<uint64_t>::max(), best_height = 0;
     std::vector<std::string> records;
-    if (tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
+    if (false)
     {
       for (const auto& record : records)
       {

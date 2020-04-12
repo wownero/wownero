@@ -41,7 +41,6 @@ using namespace epee;
 #include "common/base58.h"
 #include "crypto/hash.h"
 #include "int-util.h"
-#include "common/dns_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
@@ -299,7 +298,7 @@ namespace cryptonote {
     if (get_account_address_from_str(info, nettype, str_or_url))
       return true;
     bool dnssec_valid;
-    std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, dns_confirm);
+    std::string address_str;
     return !address_str.empty() &&
       get_account_address_from_str(info, nettype, address_str);
   }

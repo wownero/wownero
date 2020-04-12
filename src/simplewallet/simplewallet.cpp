@@ -50,7 +50,6 @@
 #include "common/i18n.h"
 #include "common/command_line.h"
 #include "common/util.h"
-#include "common/dns_utils.h"
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
