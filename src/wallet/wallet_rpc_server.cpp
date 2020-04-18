@@ -4411,6 +4411,32 @@ public:
       wrpc->send_stop_signal();
     });
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
+    MGINFO_GREEN(ENDL <<
+      "\n \n"
+      "      ,'``.._   ,'``.                          \n"
+      "     :,--._:)|,:,._,.:       All Glory to      \n"
+      "     :`--,''   :`...';|      the HYPNO TOAD!   \n"
+      "      `,'       `---'  `.                      \n"
+      "      /                 :                      \n"
+      "     /                   |                     \n"
+      "   ,'                     :|.___,-.            \n"
+      "  `...,---'``````-..._    |:       |           \n"
+      "    (                 )   ;:    )   |  _,-.    \n"
+      "     `.              (   //          `'    |   \n"
+      "      :               `.//  )      )     , ;   \n"
+      "    ,-|`.            _,'/       )    ) ,' ,'   \n"
+      "   (  :`.`-..____..=:.-':     .     _,' ,'     \n"
+      "    `,'| ``--....-)='    `._,  |  ,') _ '``._  \n"
+      " _.-/ _ `.   (WOW)        /     )' ; / | |`-.' \n"
+      "`--(   `-:`.     `' ___..'  _,-'   |/   `.)    \n"
+      "    `-. `.`.``-----``--,  .'                   \n"
+      "      |/`.|`'        ,',');                    \n"
+      "          `         (/  (/                     \n"
+      "\n \n" << ENDL);
+    MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
+      << "Caution: Wownero is highly experimental software compiled by a ragtag team of stoners with as much" << ENDL
+      << "skill as Verge developers. Storing your life savings in WOW is probably not a good idea." << ENDL
+      << "**********************************************************************" << ENDL);
     try
     {
       wrpc->run();
