@@ -38,7 +38,10 @@ Blockchain Explorers
 
 Free Public Nodes
 - wow7dhbgiljnkspkzpjyy66auegbrye2ptfv4gucgbhireg5rrjza5ad.onion:34568
-- wow.aluisyo.network:34568
+- so.wow.candy.surf:34568 (US)
+- such.wow.candy.surf:34568 (CAN)
+- very.wow.candy.surf:34568 (IN)
+- much.wow.candy.surf:34568 (UK)
 
 Tor Peers
 - wowp2p5gelm6vhl2d5tvfqills63jilgy6hkvlrqljooov5ktaxgqdad.onion
