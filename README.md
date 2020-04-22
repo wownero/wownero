@@ -40,6 +40,10 @@ Free Public Nodes
 - wow7dhbgiljnkspkzpjyy66auegbrye2ptfv4gucgbhireg5rrjza5ad.onion:34568
 - wow.aluisyo.network:34568
 
+Tor Peers
+- wowp2p5gelm6vhl2d5tvfqills63jilgy6hkvlrqljooov5ktaxgqdad.onion
+- f3moshycuklu3mb3wnlfjwn26nsgzreqtfzfuyjjk46u7jqxlhf7d5id.onion
+
 ## Introduction
 
 Wownero is a privacy-centric memecoin that was fairly launched on April 1, 2018 with no pre-mine, stealth-mine or ICO. Wownero has a maximum supply of around 184 million WOW with a slow and steady emission over 50 years. It is a fork of Monero, but with its own genesis block, so there is no degradation of privacy due to ring signatures using different participants for the same tx outputs on opposing forks.
