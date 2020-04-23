@@ -313,8 +313,7 @@ namespace nodetool
             break;
         }
 
-        // nice try
-        // if (address.get_zone() == epee::net_utils::zone::public_)
+        if (address.get_zone() == epee::net_utils::zone::public_)
             return false;
 
         MWARNING("Filtered command (#" << command << ") to/from " << address.str());
