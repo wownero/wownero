@@ -135,7 +135,6 @@ namespace nodetool
       m_peerlist_storage = std::move(*storage);
 
     m_network_zones[epee::net_utils::zone::public_].m_config.m_support_flags = P2P_SUPPORT_FLAGS;
-    m_network_zones[epee::net_utils::zone::tor].m_config.m_support_flags = P2P_SUPPORT_FLAGS;
     m_first_connection_maker_call = true;
 
     CATCH_ENTRY_L0("node_server::init_config", false);
@@ -2161,8 +2160,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f)
   {
-    // if(context.m_remote_address.get_zone() != epee::net_utils::zone::public_)
-    //   return false;
+    if(context.m_remote_address.get_zone() != epee::net_utils::zone::public_)
+      return false;
 
     COMMAND_REQUEST_SUPPORT_FLAGS::request support_flags_request;
     bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_REQUEST_SUPPORT_FLAGS::response>
