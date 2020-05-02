@@ -71,8 +71,7 @@ else()
   set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
 endif()
 
-set(UNBOUND_INCLUDE_DIR unbound_dummy_include_dir)
-set(UNBOUND_LIBRARIES unbound_dummy_libraries)
+find_package(Unbound)
 
 if(NOT UNBOUND_INCLUDE_DIR OR STATIC)
   # NOTE: If STATIC is true, CMAKE_FIND_LIBRARY_SUFFIXES has been reordered.

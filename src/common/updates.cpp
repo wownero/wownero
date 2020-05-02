@@ -29,6 +29,7 @@
 #include <boost/algorithm/string.hpp>
 #include "misc_log_ex.h"
 #include "util.h"
+#include "dns_utils.h"
 #include "updates.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -47,6 +48,7 @@ namespace tools
     static const std::vector<std::string> dns_urls = {
     };
 
+    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return false;
 
     for (const auto& record : records)
