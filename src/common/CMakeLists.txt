@@ -31,6 +31,7 @@ include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 set(common_sources
   base58.cpp
   command_line.cpp
+  dns_utils.cpp
   download.cpp
   error.cpp
   expect.cpp
@@ -63,6 +64,7 @@ set(common_private_headers
   boost_serialization_helper.h
   command_line.h
   common_fwd.h
+  dns_utils.h
   download.h
   error.h
   expect.h
@@ -96,6 +98,7 @@ monero_add_library(common
 target_link_libraries(common
   PUBLIC
     cncrypto
+    ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
