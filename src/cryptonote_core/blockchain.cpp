@@ -887,21 +887,25 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   uint64_t T = DIFFICULTY_TARGET_V2;
   uint64_t N = DIFFICULTY_WINDOW_V3;
   uint64_t HEIGHT = m_db->height();
-  uint64_t FORK_HEIGHT = DIFFICULTY_FORK_HEIGHT;
-  uint64_t difficulty_guess = DIFFICULTY_RESET;
 
   difficulty_type diff = next_difficulty(timestamps, difficulties, target);
 
-  if (version >= 11) {
-    diff = next_difficulty_v5(timestamps, difficulties, T, N, HEIGHT, FORK_HEIGHT, difficulty_guess);
-  } else if (version == 10) {
-    diff = next_difficulty_v4(timestamps, difficulties, height);
-  } else if (version == 9) {
-    diff = next_difficulty_v3(timestamps, difficulties);
-  } else if (version == 8) {
-    diff = next_difficulty_v2(timestamps, difficulties, target);
-  } else {
-    diff = next_difficulty(timestamps, difficulties, target);
+  if (m_nettype == MAINNET) {
+    if (version >= 11) {
+      diff = next_difficulty_v5(timestamps, difficulties, T, N, HEIGHT);
+    } else if (version == 10) {
+      diff = next_difficulty_v4(timestamps, difficulties, height);
+    } else if (version == 9) {
+      diff = next_difficulty_v3(timestamps, difficulties);
+    } else if (version == 8) {
+      diff = next_difficulty_v2(timestamps, difficulties, target);
+    } else {
+      diff = next_difficulty(timestamps, difficulties, target);
+    }
+  }
+
+  if (m_nettype == TESTNET) {
+    diff = next_difficulty_test(timestamps, difficulties, T, N, HEIGHT);
   }
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
@@ -1147,20 +1151,24 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   uint64_t T = DIFFICULTY_TARGET_V2;
   uint64_t N = DIFFICULTY_WINDOW_V3;
   uint64_t HEIGHT = m_db->height();
-  uint64_t FORK_HEIGHT = DIFFICULTY_FORK_HEIGHT;
-  uint64_t difficulty_guess = DIFFICULTY_RESET;
 
   // calculate the difficulty target for the block and return it
-  if (version >= 11) {
-    return next_difficulty_v5(timestamps, cumulative_difficulties, T, N, HEIGHT, FORK_HEIGHT, difficulty_guess);
-  } else if (version == 10) {
-    return next_difficulty_v4(timestamps, cumulative_difficulties, height);
-  } else if (version == 9) {
-    return next_difficulty_v3(timestamps, cumulative_difficulties);
-  } else if (version == 8) {
-    return next_difficulty_v2(timestamps, cumulative_difficulties, target);
-  } else {
-    return next_difficulty(timestamps, cumulative_difficulties, target);
+  if (m_nettype == MAINNET) {
+    if (version >= 11) {
+      return next_difficulty_v5(timestamps, cumulative_difficulties, T, N, HEIGHT);
+    } else if (version == 10) {
+      return next_difficulty_v4(timestamps, cumulative_difficulties, height);
+    } else if (version == 9) {
+      return next_difficulty_v3(timestamps, cumulative_difficulties);
+    } else if (version == 8) {
+      return next_difficulty_v2(timestamps, cumulative_difficulties, target);
+    } else {
+      return next_difficulty(timestamps, cumulative_difficulties, target);
+    }
+  }
+
+  if (m_nettype == TESTNET) {
+    return next_difficulty_test(timestamps, cumulative_difficulties, T, N, HEIGHT);
   }
 }
 //------------------------------------------------------------------

@@ -364,10 +364,44 @@ namespace cryptonote {
   // LWMA-1 difficulty algorithm 
   // Copyright (c) 2017-2019 Zawy, MIT License
   // https://github.com/zawy12/difficulty-algorithms/issues/3
-  difficulty_type next_difficulty_v5(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, uint64_t T, uint64_t N, uint64_t HEIGHT, uint64_t FORK_HEIGHT, uint64_t difficulty_guess) {
+  difficulty_type next_difficulty_v5(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, uint64_t T, uint64_t N, uint64_t HEIGHT) {
     assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
 
-    if (HEIGHT >= FORK_HEIGHT && HEIGHT < FORK_HEIGHT + N) { return difficulty_guess; }
+    if (HEIGHT >= 81769 && HEIGHT < 81769 + N) { return 10000000; }
+    assert(timestamps.size() == N+1);
+
+    uint64_t  L(0), next_D, i, this_timestamp(0), previous_timestamp(0), avg_D;
+
+    previous_timestamp = timestamps[0]-T;
+    for ( i = 1; i <= N; i++) {
+    // Safely prevent out-of-sequence timestamps
+      if ( timestamps[i]  > previous_timestamp ) {   this_timestamp = timestamps[i];  }
+      else {  this_timestamp = previous_timestamp+1;   }
+      L +=  i*std::min(6*T ,this_timestamp - previous_timestamp);
+      previous_timestamp = this_timestamp;
+    }
+    if (L < N*N*T/20 ) { L =  N*N*T/20; }
+    avg_D = static_cast<uint64_t>(( cumulative_difficulties[N] - cumulative_difficulties[0] )/ N);
+
+    // Prevent round off error for small D and overflow for large D.
+    if (avg_D > 2000000*N*N*T) {
+      next_D = (avg_D/(200*L))*(N*(N+1)*T*99);
+    }
+    else {    next_D = (avg_D*N*(N+1)*T*99)/(200*L);    }
+
+    // Make all insignificant digits zero for easy reading.
+    i = 1000000000;
+    while (i > 1) {
+      if ( next_D > i*100 ) { next_D = ((next_D+i/2)/i)*i; break; }
+      else { i /= 10; }
+    }
+    return  next_D;
+  }
+
+  difficulty_type next_difficulty_test(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, uint64_t T, uint64_t N, uint64_t HEIGHT) {
+    assert(timestamps.size() == cumulative_difficulties.size() && timestamps.size() <= N+1 );
+
+    if (HEIGHT < N) { return 1337; }
     assert(timestamps.size() == N+1);
 
     uint64_t  L(0), next_D, i, this_timestamp(0), previous_timestamp(0), avg_D;
