@@ -65,7 +65,8 @@ Dates are provided in the format YYYY-MM-DD.
 | 81769                          | 2019-02-19 | Erotic EggplantEmoji    | v0.5.0.0               | v0.5.0.2                  | Cryptonight/wow, LWMA v1 with N=144, Updated Bulletproofs, Fee Per Byte, Auto-churn
 | 114969                          | 2019-06-14 | F For Fappening    | v0.6.1.0               | v0.6.1.2                  | RandomWOW, new block weight algorithm, slightly more efficient RingCT format
 | 160777                          | 2019-11-20 | Gaping Goatse    | v0.7.0.0               | v0.7.1.0                  | Only allow >= 2 outputs, change to the block median used to calculate penalty, rct sigs in coinbase forbidden, 4 unlock time as protocol rule
-| XXXXX                       | 2020-04-XX | XXXX  | v0.8.0.0               | v0.8.0.0                  | Dandelion++ support
+| -                       | - | Hallucinogenic Hypnotoad  | v0.8.0.0               | v0.8.0.0                  | Dandelion++ support
+| XXXX                       | 2021-XX-XX | XXXX  | v0.9.0.0               | v0.9.0.0                  | SHA3-256 [FIPS 202] PoW
 
 X's indicate that these details have not been determined as of commit date.
 
