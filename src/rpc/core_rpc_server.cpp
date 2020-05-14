@@ -1261,7 +1261,7 @@ namespace cryptonote
     if (lMiner.is_mining() || lMiner.get_is_background_mining_enabled())
       res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
     const uint8_t major_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
-    const unsigned variant = major_version >= 13 ? 6 : major_version >= 11 && major_version <= 12 ? 4 : 2;
+    const unsigned variant = major_version >= HF_VERSION_SHA3_POW ? 7 : major_version >= 13 && major_version < HF_VERSION_SHA3_POW ? 6 : major_version >= 11 && major_version <= 12 ? 4 : 2;
     switch (variant)
     {
       case 0: res.pow_algorithm = "Cryptonight"; break;
@@ -1269,6 +1269,7 @@ namespace cryptonote
       case 2: case 3: res.pow_algorithm = "CNv2 (Cryptonight variant 2)"; break;
       case 4: case 5: res.pow_algorithm = "CN/WOW"; break;
       case 6: res.pow_algorithm = "RandomWOW"; break;
+      case 7: res.pow_algorithm = "SHA-3"; break;
       default: res.pow_algorithm = "I'm not sure actually"; break;
     }
     if (res.is_background_mining_enabled)
@@ -1621,7 +1622,7 @@ namespace cryptonote
       return false;
     }
 
-    if (b.major_version >= RX_BLOCK_VERSION)
+    if (b.major_version >= RX_BLOCK_VERSION && b.major_version < HF_VERSION_SHA3_POW)
     {
       uint64_t next_height;
       crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1736,7 +1737,7 @@ namespace cryptonote
     crypto::hash seed_hash, next_seed_hash;
     if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
       return false;
-    if (b.major_version >= RX_BLOCK_VERSION)
+    if (b.major_version >= RX_BLOCK_VERSION && b.major_version < HF_VERSION_SHA3_POW)
     {
       res.seed_hash = string_tools::pod_to_hex(seed_hash);
       if (seed_hash != next_seed_hash)
@@ -3017,7 +3018,7 @@ namespace cryptonote
     }
     res.hashing_blob = epee::string_tools::buff_to_hex_nodelimer(hashing_blob);
     res.top_hash = epee::string_tools::pod_to_hex(top_hash);
-    if (hashing_blob[0] >= RX_BLOCK_VERSION)
+    if (hashing_blob[0] >= RX_BLOCK_VERSION && hashing_blob[0] < HF_VERSION_SHA3_POW)
     {
       res.seed_hash = string_tools::pod_to_hex(seed_hash);
       if (seed_hash != next_seed_hash)
