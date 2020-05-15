@@ -34,7 +34,8 @@
 #include <errno.h>
 #include "crypto/hash-ops.h"
 
-extern volatile int use_v4_jit_flag;
+/* extern volatile int use_v4_jit_flag; */
+volatile int use_v4_jit_flag = 0;
 
 static int test(const uint8_t *data, size_t len, uint64_t height)
 {
