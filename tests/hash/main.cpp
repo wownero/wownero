@@ -84,6 +84,7 @@ struct hash_func {
 } hashes[] = {{"fast", cn_fast_hash}, {"slow", cn_slow_hash_0}, {"tree", hash_tree},
   {"extra-blake", hash_extra_blake}, {"extra-groestl", hash_extra_groestl},
   {"extra-jh", hash_extra_jh}, {"extra-skein", hash_extra_skein},
+  {"sha3", sha3},
   {"slow-1", cn_slow_hash_1}, {"slow-2", cn_slow_hash_2}, {"slow-4", cn_slow_hash_4}};
 
 int test_variant2_int_sqrt();
