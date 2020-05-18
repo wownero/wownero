@@ -67,7 +67,7 @@ set(unit_tests_sources
   mul_div.cpp
   multiexp.cpp
   multisig.cpp
-  net.cpp
+  # net.cpp
   node_server.cpp
   notify.cpp
   output_distribution.cpp
@@ -95,7 +95,8 @@ set(unit_tests_sources
   is_hdd.cpp
   aligned.cpp
   rpc_version_str.cpp
-  zmq_rpc.cpp)
+  # zmq_rpc.cpp
+  )
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -122,7 +123,7 @@ target_link_libraries(unit_tests
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
-    ${ZMQ_LIB})
+    )
 set_property(TARGET unit_tests
   PROPERTY
     FOLDER "tests")
