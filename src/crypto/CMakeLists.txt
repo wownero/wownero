@@ -42,6 +42,7 @@ set(crypto_sources
   hmac-keccak.c
   jh.c
   keccak.c
+  sha3.c
   oaes_lib.c
   random.c
   skein.c

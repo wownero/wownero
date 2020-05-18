@@ -144,7 +144,7 @@ namespace cryptonote
     m_height = height;
     m_block_reward = block_reward;
     ++m_template_no;
-    m_starter_nonce = crypto::rand<uint32_t>();
+    m_starter_nonce = crypto::rand<uint64_t>();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -375,7 +375,7 @@ namespace cryptonote
       m_threads_autodetect.push_back({epee::misc_utils::get_ns_count(), m_total_hashes});
       m_threads_total = 1;
     }
-    m_starter_nonce = crypto::rand<uint32_t>();
+    m_starter_nonce = crypto::rand<uint64_t>();
     CRITICAL_REGION_LOCAL(m_threads_lock);
     if(is_mining())
     {
@@ -473,7 +473,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height)
   {
-    for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
+    for(; bl.nonce != std::numeric_limits<uint64_t>::max(); bl.nonce++)
     {
       crypto::hash h;
       gbh(bl, height, diffic <= 100 ? 0 : tools::get_max_concurrency(), h);
@@ -524,7 +524,7 @@ namespace cryptonote
     uint32_t th_local_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index);
     MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
     MGINFO("Miner thread was started ["<< th_local_index << "]");
-    uint32_t nonce = m_starter_nonce + th_local_index;
+    uint64_t nonce = m_starter_nonce + th_local_index;
     uint64_t height = 0;
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;

@@ -984,7 +984,7 @@ namespace cryptonote
       uint8_t minor_version;
       uint64_t timestamp;
       std::string prev_hash;
-      uint32_t nonce;
+      uint64_t nonce;
       bool orphan_status;
       uint64_t height;
       uint64_t depth;
@@ -1008,7 +1008,19 @@ namespace cryptonote
         KV_SERIALIZE(minor_version)
         KV_SERIALIZE(timestamp)
         KV_SERIALIZE(prev_hash)
-        KV_SERIALIZE(nonce)
+        if (this_ref.major_version >= HF_VERSION_SHA3_POW)
+        {
+          KV_SERIALIZE(nonce)
+        }
+        else
+        {
+          uint32_t nonce32;
+          if (is_store)
+            nonce32 = (uint32_t)this_ref.nonce;
+          epee::serialization::selector<is_store>::serialize(nonce32, stg, hparent_section, "nonce");
+          if (!is_store)
+            const_cast<uint64_t &>(this_ref.nonce) = nonce32;
+        }
         KV_SERIALIZE(orphan_status)
         KV_SERIALIZE(height)
         KV_SERIALIZE(depth)
@@ -2350,7 +2362,7 @@ namespace cryptonote
   {
     struct request_t: public rpc_access_request_base
     {
-      uint32_t nonce;
+      uint64_t nonce;
       uint32_t cookie;
 
       BEGIN_KV_SERIALIZE_MAP()

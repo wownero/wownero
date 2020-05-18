@@ -681,7 +681,11 @@ namespace cryptonote
   bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const int miners)
   {
     blobdata bd = get_block_hashing_blob(b);
-    if (b.major_version >= RX_BLOCK_VERSION)
+    if (b.major_version >= HF_VERSION_SHA3_POW)
+    {
+      crypto::sha3(bd.data(), bd.size(), res);
+    }
+    else if (b.major_version >= RX_BLOCK_VERSION && b.major_version < HF_VERSION_SHA3_POW)
     {
       uint64_t seed_height, main_height;
       crypto::hash hash;

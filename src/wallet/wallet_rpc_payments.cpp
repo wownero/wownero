@@ -75,7 +75,7 @@ bool wallet2::daemon_requires_payment()
   return get_rpc_payment_info(false, payment_required, credits, diff, credits_per_hash_found, blob, height, seed_height, seed_hash, next_seed_hash, cookie) && payment_required;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::make_rpc_payment(uint32_t nonce, uint32_t cookie, uint64_t &credits, uint64_t &balance)
+bool wallet2::make_rpc_payment(uint64_t nonce, uint32_t cookie, uint64_t &credits, uint64_t &balance)
 {
   cryptonote::COMMAND_RPC_ACCESS_SUBMIT_NONCE::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_ACCESS_SUBMIT_NONCE::response res = AUTO_VAL_INIT(res);
@@ -143,7 +143,7 @@ bool wallet2::search_for_rpc_payment(uint64_t credits_target, const std::functio
     const uint32_t local_nonce = nonce++; // wrapping's OK
     *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(local_nonce);
     const uint8_t major_version = hashing_blob[0];
-    if (major_version >= RX_BLOCK_VERSION)
+    if (major_version >= RX_BLOCK_VERSION && major_version < HF_VERSION_SHA3_POW)
     {
       const int miners = 1;
       crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, miners, 0);
