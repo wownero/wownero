@@ -1134,7 +1134,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_trusted_daemon(false),
   m_nettype(nettype),
   m_multisig_rounds_passed(0),
-  m_always_confirm_transfers(true),
+  m_always_confirm_transfers(false),
   m_print_ring_members(false),
   m_store_tx_info(true),
   m_default_mixin(0),
@@ -1145,13 +1145,13 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
   m_confirm_non_default_ring_size(true),
-  m_ask_password(AskPasswordOnAction),
+  m_ask_password(AskPasswordNever),
   m_min_output_count(0),
   m_min_output_value(0),
   m_merge_destinations(false),
-  m_confirm_backlog(true),
+  m_confirm_backlog(false),
   m_confirm_backlog_threshold(0),
-  m_confirm_export_overwrite(true),
+  m_confirm_export_overwrite(false),
   m_auto_low_priority(true),
   m_segregate_pre_fork_outputs(false),
   m_key_reuse_mitigation2(false),
@@ -4000,6 +4000,12 @@ void wallet2::change_password(const std::string &filename, const epee::wipeable_
  */
 bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_string& password)
 {
+  m_ask_password = AskPasswordNever;
+  m_always_confirm_transfers = false;
+  m_confirm_backlog = false;
+  m_confirm_export_overwrite = false;
+  m_confirm_non_default_ring_size = true;
+  m_inactivity_lock_timeout = 525600;
   std::string keys_file_buf;
   bool r = load_from_file(keys_file_name, keys_file_buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
