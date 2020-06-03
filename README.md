@@ -29,7 +29,6 @@ An Android Wallet for Wownero
 - IRC: [#wownero on Freenode](https://kiwiirc.com/client/irc.freenode.net/?nick=suchchatter|?#wownero)
 - Bitmessage Chan: wownero (`BM-2cSzWtrj2pzLva9GF1Jp2TYsnLjrnJpvba`)
 - Wownero Funding System: [https://funding.wownero.com](https://funding.wownero.com)
-- Keybase Chat Group: [https://keybase.io/team/wownero](https://keybase.io/team/wownero)
 
 Blockchain Explorers
 - https://explore.wownero.com
