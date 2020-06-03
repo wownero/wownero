@@ -24,7 +24,7 @@ packages:
 - "python-dev"
 - "python-setuptools"
 remotes:
-- "url": "https://github.com/wownero/wownero.git"
+- "url": "https://github.com/wowbux/wow-cli.git"
   "dir": "wownero"
 files:
 - "MacOSX10.11.sdk.tar.gz"
