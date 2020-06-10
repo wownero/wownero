@@ -90,7 +90,7 @@ Packages are available for
 
 * Ubuntu 18.04/Ubuntu 16.04/Debian 9/Debian 8 (amd64)
 
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B09DF0E4B0C56A94
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8BC34ABB48E565F0
         sudo add-apt-repository "deb http://ppa.wownero.com/ bionic main"
         sudo apt-get update
         sudo apt-get install wownero
