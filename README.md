@@ -84,6 +84,14 @@ Packages are available for
 
         yay -S wownero-git
 
+* Gentoo
+
+        emerge --noreplace eselect-repository
+        eselect repository enable monero
+        emaint sync -r monero
+        echo '*/*::monero ~amd64' >> /etc/portage/package.accept_keywords
+        emerge net-p2p/wownero
+
 * NixOS
 
         nix-shell -p wownero
