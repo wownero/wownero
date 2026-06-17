@@ -41,12 +41,10 @@
 
 
 namespace Monero {
-class TransactionHistoryImpl;
 class PendingTransactionImpl;
 class UnsignedTransactionImpl;
-class AddressBookImpl;
-class SubaddressImpl;
-class SubaddressAccountImpl;
+class PendingTransactionInfoImpl;
+class TransactionConstructionInfoImpl;
 struct Wallet2CallbackImpl;
 
 class WalletImpl : public Wallet
@@ -58,7 +56,7 @@ public:
                 const std::string &language);
     bool createWatchOnly(const std::string &path, const std::string &password,
                             const std::string &language) const override;
-    bool open(const std::string &path, const std::string &password);
+    bool open(const std::string &path, const std::string &password, std::string ringDatabasePath);
     bool recover(const std::string &path,const std::string &password,
                             const std::string &seed, const std::string &seed_offset = {});
     bool recoverFromKeysWithPassword(const std::string &path,
@@ -76,6 +74,11 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
+    bool recoverDeterministicWalletFromSpendKey(const std::string &path,
+                                                const std::string &password,
+                                                const std::string &language,
+                                                const std::string &spendkey_string,
+                                                const std::string &offset_passphrase = "");
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
@@ -88,11 +91,12 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
-    bool setPassword(const std::string &password) override;
-    const std::string& getPassword() const override;
+    bool setPassword(const std::string &old_password, const std::string &new_password) override;
+    bool verifyPassword(const std::string &password) const override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
+    bool subaddressIndex(std::string address, std::pair<uint32_t, uint32_t> &index) const override;
     std::string integratedAddress(const std::string &payment_id) const override;
     std::string secretViewKey() const override;
     std::string publicViewKey() const override;
@@ -101,10 +105,11 @@ public:
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
     void stop() override;
-    bool store(const std::string &path) override;
+    bool store() override;
     std::string filename() const override;
     std::string keysFilename() const override;
-    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
+    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "", bool use_dns = false) override;
+    bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false) const;
     bool connectToDaemon() override;
     ConnectionStatus connected() const override;
     void setTrustedDaemon(bool arg) override;
@@ -112,6 +117,7 @@ public:
     bool setProxy(const std::string &address) override;
     uint64_t balance(uint32_t accountIndex = 0) const override;
     uint64_t unlockedBalance(uint32_t accountIndex = 0) const override;
+    uint64_t viewOnlyBalance(uint32_t accountIndex, const std::vector<std::string> &key_images) const override;
     uint64_t blockChainHeight() const override;
     uint64_t approximateBlockChainHeight() const override;
     uint64_t estimateBlockChainHeight() const override;
@@ -129,6 +135,7 @@ public:
     void setRecoveringFromSeed(bool recoveringFromSeed) override;
     void setRecoveringFromDevice(bool recoveringFromDevice) override;
     void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
+    std::pair<size_t, size_t> getSubaddressLookahead() override;
     bool watchOnly() const override;
     bool isDeterministic() const override;
     bool rescanSpent() override;
@@ -153,42 +160,80 @@ public:
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
-                                        optional<std::vector<uint64_t>> amount, uint32_t mixin_count,
+                                        std::optional<std::vector<uint64_t>> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
                                         uint32_t subaddr_account = 0,
-                                        std::set<uint32_t> subaddr_indices = {}) override;
+                                        std::set<uint32_t> subaddr_indices = {},
+                                        const std::set<std::string> &preferred_inputs = {},
+                                        bool subtractFeeFromAmount = false) override;
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                        optional<uint64_t> amount, uint32_t mixin_count,
+                                        std::optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
                                         uint32_t subaddr_account = 0,
-                                        std::set<uint32_t> subaddr_indices = {}) override;
+                                        std::set<uint32_t> subaddr_indices = {},
+                                        const std::set<std::string> &preferred_inputs = {},
+                                        bool subtractFeeFromAmount = false) override;
+
+    PendingTransaction * createTransactionSingle(const std::string &key_image, const std::string &dst_addr,
+            size_t outputs = 1, PendingTransaction::Priority priority = PendingTransaction::Priority_Low) override;
+    PendingTransaction * createTransactionSelected(const std::vector<std::string> &key_images, const std::string &dst_addr,
+            size_t outputs = 1, PendingTransaction::Priority priority = PendingTransaction::Priority_Low) override;
+
     virtual PendingTransaction * createSweepUnmixableTransaction() override;
     bool submitTransaction(const std::string &fileName) override;
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) override;
+    virtual UnsignedTransaction * loadUnsignedTxFromStr(const std::string &unsigned_tx) override;
+    virtual UnsignedTransaction * loadUnsignedTxFromBase64Str(const std::string &unsigned_tx) override;
+    virtual PendingTransaction * loadSignedTx(const std::string &signed_filename) override;
+    virtual PendingTransaction * loadSignedTxFromStr(const std::string &data) override;
+    bool hasUnknownKeyImages() const override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
+    bool exportKeyImagesToStr(std::string &keyImages, bool all = false) override;
+    bool exportKeyImagesForOutputsFromStr(const std::string &outputs, std::string &keyImages) override;
     bool importKeyImages(const std::string &filename) override;
+    bool importKeyImagesFromStr(const std::string &outputs) override;
     bool exportOutputs(const std::string &filename, bool all = false) override;
+    bool exportOutputsToStr(std::string &outputs, bool all = false) override;
     bool importOutputs(const std::string &filename) override;
+    bool importOutputsFromStr(const std::string &outputs) override;
     bool scanTransactions(const std::vector<std::string> &txids) override;
 
-    bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password = optional<std::string>()) override;
+    bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const std::optional<std::string> &background_cache_password = std::optional<std::string>()) override;
     BackgroundSyncType getBackgroundSyncType() const override;
     bool startBackgroundSync() override;
     bool stopBackgroundSync(const std::string &wallet_password) override;
     bool isBackgroundSyncing() const override;
     bool isBackgroundWallet() const override;
 
+    virtual std::string printBlockchain() override;
+    virtual std::string printTransfers() override;
+    virtual std::string printPayments() override;
+    virtual std::string printUnconfirmedPayments() override;
+    virtual std::string printConfirmedTransferDetails() override;
+    virtual std::string printUnconfirmedTransferDetails() override;
+    virtual std::string printPubKeys() override;
+    virtual std::string printTxNotes() override;
+    virtual std::string printSubaddresses() override;
+    virtual std::string printSubaddressLabels() override;
+    virtual std::string printAdditionalTxKeys() override;
+    virtual std::string printAttributes() override;
+    virtual std::string printKeyImages() override;
+    virtual std::string printAccountTags() override;
+    virtual std::string printTxKeys() override;
+    virtual std::string printAddressBook() override;
+    virtual std::string printScannedPoolTxs() override;
+
+    virtual bool haveTransaction(const std::string &txid);
+
     virtual void disposeTransaction(PendingTransaction * t) override;
     virtual uint64_t estimateTransactionFee(const std::vector<std::pair<std::string, uint64_t>> &destinations,
                                             PendingTransaction::Priority priority) const override;
-    virtual TransactionHistory * history() override;
-    virtual AddressBook * addressBook() override;
-    virtual Subaddress * subaddress() override;
-    virtual SubaddressAccount * subaddressAccount() override;
+
     virtual void setListener(WalletListener * l) override;
     virtual uint32_t defaultMixin() const override;
     virtual void setDefaultMixin(uint32_t arg) override;
 
+    virtual bool cacheAttributeExists(const std::string &key) override;
     virtual bool setCacheAttribute(const std::string &key, const std::string &val) override;
     virtual std::string getCacheAttribute(const std::string &key) const override;
 
@@ -233,44 +278,33 @@ public:
     virtual bool reconnectDevice() override;
     virtual uint64_t getBytesReceived() override;
     virtual uint64_t getBytesSent() override;
+    virtual bool isDeviceConnected() override;
+    virtual bool setRingDatabase(const std::string &path) override;
+    virtual tools::wallet2* getWallet() override;
 
 private:
     void clearStatus() const;
     void setStatusError(const std::string& message) const;
     void setStatusCritical(const std::string& message) const;
     void setStatus(int status, const std::string& message) const;
-    void refreshThreadFunc();
-    void doRefresh();
+    bool doRefresh();
     bool daemonSynced() const;
-    void stopRefresh();
     bool isNewWallet() const;
     void pendingTxPostProcess(PendingTransactionImpl * pending);
-    bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
     bool checkBackgroundSync(const std::string &message) const;
 
 private:
     friend class PendingTransactionImpl;
-    friend class UnsignedTransactionImpl;    
-    friend class TransactionHistoryImpl;
+    friend class UnsignedTransactionImpl;
     friend struct Wallet2CallbackImpl;
-    friend class AddressBookImpl;
-    friend class SubaddressImpl;
-    friend class SubaddressAccountImpl;
+    friend class PendingTransactionInfoImpl;
+    friend class TransactionConstructionInfoImpl;
 
     std::unique_ptr<tools::wallet2> m_wallet;
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
-    // TODO: harden password handling in the wallet API, see relevant discussion
-    // https://github.com/monero-project/monero-gui/issues/1537
-    // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
-    // https://github.com/monero-project/monero/pull/8619#issuecomment-1632951461
-    std::string m_password;
-    std::unique_ptr<TransactionHistoryImpl> m_history;
     std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
-    std::unique_ptr<AddressBookImpl>  m_addressBook;
-    std::unique_ptr<SubaddressImpl>  m_subaddress;
-    std::unique_ptr<SubaddressAccountImpl>  m_subaddressAccount;
 
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
@@ -291,6 +325,7 @@ private:
     std::atomic<bool>   m_recoveringFromDevice;
     std::atomic<bool>   m_synchronized;
     std::atomic<bool>   m_rebuildWalletCache;
+    std::atomic<bool>   m_deviceConnected;
     // cache connection status to avoid unnecessary RPC calls
     mutable std::atomic<bool>   m_is_connected;
     boost::optional<epee::net_utils::http::login> m_daemon_login{};

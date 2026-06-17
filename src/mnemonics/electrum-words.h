@@ -42,6 +42,7 @@
 #include <string>
 #include <cstdint>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
+#include "language_base.h"
 
 namespace epee {  class wipeable_string; }
 
@@ -103,6 +104,8 @@ namespace crypto
      */
     bool bytes_to_words(const crypto::secret_key& src, epee::wipeable_string& words,
       const std::string &language_name);
+
+    std::vector<const Language::Base*> get_language_list();
 
     /*!
      * \brief Gets a list of seed languages that are supported.

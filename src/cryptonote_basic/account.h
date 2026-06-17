@@ -94,6 +94,8 @@ namespace cryptonote
     bool load(const std::string& file_path);
     bool store(const std::string& file_path);
 
+    void set_view_key(const crypto::secret_key &view_secret_key);
+    void forget_view_key();
     void forget_spend_key();
     void set_spend_key(const crypto::secret_key& spend_secret_key);
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }

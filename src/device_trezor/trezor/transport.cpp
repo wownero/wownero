@@ -1125,7 +1125,11 @@ namespace trezor{
 
     int transferred = 0;
     int r = libusb_interrupt_transfer(m_usb_device_handle, endpoint, (unsigned char*)buff, (int)size, &transferred, 0);
-    CHECK_AND_ASSERT_THROW_MES(r == 0, "Unable to transfer, r: " << r);
+
+    if (r != 0) {
+        throw exc::CommunicationException("Unable to transfer, r: " + std::to_string(r));
+    }
+
     if (transferred != (int)size){
       throw exc::CommunicationException("Could not transfer chunk");
     }
@@ -1169,13 +1173,6 @@ namespace trezor{
 #endif  // WITH_DEVICE_TREZOR_WEBUSB
 
   void enumerate(t_transport_vect & res){
-    BridgeTransport bt;
-    try{
-      bt.enumerate(res);
-    } catch (const std::exception & e){
-      MERROR("BridgeTransport enumeration failed:" << e.what());
-    }
-
 #ifdef WITH_DEVICE_TREZOR_WEBUSB
     hw::trezor::WebUsbTransport btw;
     try{
@@ -1193,6 +1190,13 @@ namespace trezor{
       MERROR("UdpTransport enumeration failed:" << e.what());
     }
 #endif
+
+    BridgeTransport bt;
+    try{
+        bt.enumerate(res);
+    } catch (const std::exception & e){
+        MERROR("BridgeTransport enumeration failed:" << e.what());
+    }
   }
 
   void sort_transports_by_env(t_transport_vect & res){

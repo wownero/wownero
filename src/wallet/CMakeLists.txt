@@ -66,7 +66,11 @@ target_link_libraries(wallet
   PRIVATE
     ${EXTRA_LIBRARIES})
 
-if(NOT IOS)
+# wallet-rpc is disabled on the gui branch: wowlet links libwallet / wallet2_api, not
+# wownero-wallet-rpc. Feather's wallet2 API changes (e.g. adjust_priority / export_key_images
+# signatures) would otherwise need backward-compat shims here. Set -DBUILD_WALLET_RPC=ON (and add
+# those shims) to restore a full wownero build.
+if(NOT IOS AND BUILD_WALLET_RPC)
   set(wallet_rpc_sources
     wallet_rpc_server.cpp)
 

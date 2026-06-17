@@ -110,6 +110,7 @@ namespace net_utils
 				m_connected(false),
 				m_deadline(m_io_service, std::chrono::steady_clock::time_point::max()),
 				m_shutdowned(false),
+				m_cancel_read(false),
 				m_bytes_sent(0),
 				m_bytes_received(0)
 		{
@@ -265,14 +266,14 @@ namespace net_utils
 					m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 				}
 			}
-			catch(const boost::system::system_error& /*er*/)
+			catch(const boost::system::system_error& er)
 			{
-				//LOG_ERROR("Some problems at disconnect, message: " << er.what());
+				LOG_ERROR("Some problems at disconnect, message: " << er.what());
 				return false;
 			}
 			catch(...)
 			{
-				//LOG_ERROR("Some fatal problems.");
+				LOG_ERROR("Some fatal problems.");
 				return false;
 			}
 			return true;
@@ -440,8 +441,14 @@ namespace net_utils
 					m_io_service.run_one(); 
 				}
 
+        if (m_cancel_read)
+        {
+          LOG_ERROR("Cancelling read, returning false");
+          m_connected = false;
+          return false;
+        }
 
-				if (ec)
+        if (ec)
 				{
                     MTRACE("READ ENDS: Connection err_code " << ec.value());
                     if(ec == boost::asio::error::eof)
@@ -579,7 +586,14 @@ namespace net_utils
       m_connected = false;
 			return true;
 		}
-		
+
+      bool cancel_read()
+      {
+          MDEBUG("Cancelling read");
+          m_cancel_read = true;
+          return true;
+      }
+
 		boost::asio::io_context& get_io_service()
 		{
 			return m_io_service;
@@ -684,7 +698,8 @@ namespace net_utils
 		bool m_initialized;
 		bool m_connected;
 		boost::asio::steady_timer m_deadline;
-		std::atomic<bool> m_shutdowned;
+        std::atomic<bool> m_shutdowned;
+        std::atomic<bool> m_cancel_read;
 		std::atomic<uint64_t> m_bytes_sent;
 		std::atomic<uint64_t> m_bytes_received;
 	};

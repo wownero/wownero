@@ -84,7 +84,7 @@ namespace cryptonote
     tx_destination_entry(uint64_t a, const account_public_address &ad, bool is_subaddress) : amount(a), addr(ad), is_subaddress(is_subaddress), is_integrated(false) { }
     tx_destination_entry(const std::string &o, uint64_t a, const account_public_address &ad, bool is_subaddress) : original(o), amount(a), addr(ad), is_subaddress(is_subaddress), is_integrated(false) { }
 
-    std::string address(network_type nettype, const crypto::hash &payment_id) const
+    std::string address(network_type nettype, const crypto::hash &payment_id, bool force_payment_id = false) const
     {
       if (!original.empty())
       {
@@ -93,6 +93,10 @@ namespace cryptonote
 
       if (is_integrated)
       {
+        return get_account_integrated_address_as_str(nettype, addr, reinterpret_cast<const crypto::hash8 &>(payment_id));
+      }
+
+      if (force_payment_id && payment_id != crypto::null_hash) {
         return get_account_integrated_address_as_str(nettype, addr, reinterpret_cast<const crypto::hash8 &>(payment_id));
       }
 
@@ -145,11 +149,13 @@ namespace cryptonote
     );
 
   class Blockchain;
+
+#ifndef BUILD_GUI_DEPS
   bool get_block_longhash(const Blockchain *pb, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, const int miners = 0);
   bool get_block_longhash(const Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
   crypto::hash get_block_longhash(const Blockchain *pb, const block& b, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
   void get_altblock_longhash(const block& b, crypto::hash& res, const crypto::hash& seed_hash);
-
+#endif
 }
 
 BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)

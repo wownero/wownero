@@ -113,7 +113,7 @@ namespace tools
       std::string to_string() const
       {
         std::ostringstream ss;
-        ss << m_loc << ':' << typeid(*this).name() << ": " << Base::what();
+        ss << Base::what();
         return ss.str();
       }
 
@@ -457,16 +457,6 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
-    struct incorrect_fork_version : public refresh_error
-    {
-      explicit incorrect_fork_version(std::string&& loc, const std::string& message)
-        : refresh_error(std::move(loc), message)
-      {
-      }
-
-      std::string to_string() const { return refresh_error::to_string(); }
-    };
-    //----------------------------------------------------------------------------------------------------
     struct signature_check_failed : public wallet_logic_error
     {
       explicit signature_check_failed(std::string&& loc, const std::string& message)
@@ -492,11 +482,13 @@ namespace tools
         : transfer_error(std::move(loc), "not enough unlocked money")
         , m_available(available)
         , m_tx_amount(tx_amount)
+        , m_fee(fee)
       {
       }
 
       uint64_t available() const { return m_available; }
       uint64_t tx_amount() const { return m_tx_amount; }
+      uint64_t fee() const { return m_fee; }
 
       std::string to_string() const
       {
@@ -510,6 +502,7 @@ namespace tools
     private:
       uint64_t m_available;
       uint64_t m_tx_amount;
+      uint64_t m_fee;
     };
     //----------------------------------------------------------------------------------------------------
     struct not_enough_money : public transfer_error
@@ -518,11 +511,13 @@ namespace tools
         : transfer_error(std::move(loc), "not enough money")
         , m_available(available)
         , m_tx_amount(tx_amount)
+        , m_fee(fee)
       {
       }
 
       uint64_t available() const { return m_available; }
       uint64_t tx_amount() const { return m_tx_amount; }
+      uint64_t fee() const { return m_fee; }
 
       std::string to_string() const
       {
@@ -536,6 +531,7 @@ namespace tools
     private:
       uint64_t m_available;
       uint64_t m_tx_amount;
+      uint64_t m_fee;
     };
     //----------------------------------------------------------------------------------------------------
     struct tx_not_possible : public transfer_error
@@ -813,7 +809,7 @@ namespace tools
       std::string to_string() const
       {
         std::ostringstream ss;
-        ss << wallet_logic_error::to_string() << ", request = " << m_request;
+        ss << "RPC Error. " << wallet_logic_error::to_string() << ": " << m_request;
         return ss.str();
       }
 

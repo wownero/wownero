@@ -103,12 +103,16 @@ if(NOT IOS)
 endif()
 add_subdirectory(cryptonote_protocol)
 if(NOT IOS)
-  add_subdirectory(simplewallet)
-  add_subdirectory(gen_multisig)
+  # gui-branch scope: build wownerod (wowlet's embedded node) + the wallet libs wowlet links.
+  # The wownero CLI/admin tools below consume wallet2's pre-Feather API (search_for_rpc_payment,
+  # export_key_images(filename,all), multisig-gen, blackball) which Feather removed/changed.
+  # They can't build against Feather's wallet2 and wowlet uses none of them — they stay on master.
+  # add_subdirectory(simplewallet)
+  # add_subdirectory(gen_multisig)
   add_subdirectory(gen_ssl_cert)
   add_subdirectory(daemonizer)
   add_subdirectory(daemon)
-  add_subdirectory(blockchain_utilities)
+  # add_subdirectory(blockchain_utilities)
 endif()
 
 if(BUILD_DEBUG_UTILITIES)

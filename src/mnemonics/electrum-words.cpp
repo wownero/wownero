@@ -65,14 +65,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "mnemonic"
 
-namespace crypto
-{
-  namespace ElectrumWords
-  {
-    std::vector<const Language::Base*> get_language_list();
-  }
-}
-
 namespace
 {
   uint32_t create_checksum_index(const std::vector<epee::wipeable_string> &word_list,

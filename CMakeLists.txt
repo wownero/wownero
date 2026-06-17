@@ -96,9 +96,18 @@ enable_language(C ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# When built as Feather/wowlet's wallet submodule (it sets BUILD_GUI_DEPS=ON before
+# add_subdirectory(monero)), match Feather's anti-AV namespace rename so this library's symbols line
+# up with the app, which Feather compiles with the same -Dcryptonote=MWYSUTPAXIBT define. Gated so it
+# has no effect on standalone wownero (daemon/CLI) builds.
+if(BUILD_GUI_DEPS)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Dcryptonote=MWYSUTPAXIBT")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Dcryptonote=MWYSUTPAXIBT")
+endif()
 
 function (die msg)
   if (NOT WIN32)

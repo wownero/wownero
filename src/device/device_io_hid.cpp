@@ -31,6 +31,7 @@
 #include <boost/scope_exit.hpp>
 #include "log.hpp"
 #include "device_io_hid.hpp"
+#include "device_errors.hpp"
 
 namespace hw {
   namespace io {
@@ -40,7 +41,16 @@ namespace hw {
  
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
-    #define MAX_BLOCK  64
+    #define ASSERT_AND_EXCEPT(cond, err_type, message)             \
+    if (!(cond))                                                   \
+    {                                                              \
+        this->disconnected = true;                                 \
+        LOG_ERROR(#cond << ". THROW EXCEPTION: " << #err_type);    \
+        hw::error::throw_exception<err_type>(message);             \
+    }
+
+
+#define MAX_BLOCK  64
     
     static std::string safe_hid_error(hid_device *hwdev) {
       if (hwdev) {
@@ -197,7 +207,8 @@ namespace hw {
         memcpy(padding_buffer+1, buffer + offset, block_size);
         io_hid_log(0, padding_buffer, block_size+1);
         hid_ret = hid_write(this->usb_device, padding_buffer, block_size+1);
-        ASSERT_X(hid_ret>=0, "Unable to send hidapi command. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
+
+        ASSERT_AND_EXCEPT(hid_ret>0, hw::error::device_disconnected, "Unable to send hidapi command. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
         offset += block_size;
         remaining -= block_size;
       }
@@ -209,7 +220,9 @@ namespace hw {
       } else {
         hid_ret = hid_read(this->usb_device, buffer, MAX_BLOCK);
       }
-      ASSERT_X(hid_ret>=0, "Unable to read hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
+
+      ASSERT_AND_EXCEPT(hid_ret>=0, hw::error::device_disconnected, "Unable to read hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
+
       result = (unsigned int)hid_ret;
       io_hid_log(1, buffer, result); 
       offset = MAX_BLOCK;
@@ -220,11 +233,13 @@ namespace hw {
           break;
         }
         hid_ret = hid_read_timeout(this->usb_device, buffer + offset, MAX_BLOCK, this->timeout);
-        ASSERT_X(hid_ret>=0, "Unable to receive hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
+        ASSERT_AND_EXCEPT(hid_ret>=0, hw::error::device_disconnected, "Unable to receive hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device))
         result = (unsigned int)hid_ret;
         io_hid_log(1, buffer + offset, result);
         offset += MAX_BLOCK;
-      }      
+      }
+
+      this->disconnected = false;
       return result;
     }
 

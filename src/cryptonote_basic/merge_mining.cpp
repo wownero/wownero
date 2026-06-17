@@ -32,6 +32,7 @@
 #include "int-util.h"
 #include "crypto/crypto.h"
 #include "common/util.h"
+#include "cryptonote_config.h"
 #include "merge_mining.h"
 
 using namespace epee;

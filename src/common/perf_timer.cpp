@@ -44,44 +44,12 @@ namespace tools
 {
   uint64_t get_tick_count()
   {
-#if defined(__x86_64__)
-    uint32_t hi, lo;
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    return (((uint64_t)hi) << 32) | (uint64_t)lo;
-#else
     return epee::misc_utils::get_ns_count();
-#endif
   }
-
-#ifdef __x86_64__
-  uint64_t get_ticks_per_ns()
-  {
-    uint64_t t0 = epee::misc_utils::get_ns_count(), t1;
-    uint64_t r0 = get_tick_count();
-
-    while (1)
-    {
-      t1 = epee::misc_utils::get_ns_count();
-      if (t1 - t0 > 1*100000000) break; // work 0.1 seconds
-    }
-
-    uint64_t r1 = get_tick_count();
-    uint64_t tpns256 = 256 * (r1 - r0) / (t1 - t0);
-    return tpns256 ? tpns256 : 1;
-  }
-#endif
-
-#ifdef __x86_64__
-  uint64_t ticks_per_ns = get_ticks_per_ns();
-#endif
 
   uint64_t ticks_to_ns(uint64_t ticks)
   {
-#if defined(__x86_64__)
-    return 256 * ticks / ticks_per_ns;
-#else
     return ticks;
-#endif
   }
 }
 

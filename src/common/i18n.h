@@ -28,8 +28,6 @@
 
 #pragma once
 
-#define QT_TRANSLATE_NOOP(context,str) i18n_translate(str,context)
-
 std::string i18n_get_language();
 int i18n_set_language(const char *directory, const char *base, std::string language = std::string());
 const char *i18n_translate(const char *str, const std::string &context);

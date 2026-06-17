@@ -86,6 +86,7 @@ namespace hw {
  
     public:
       bool hid_verbose = false;
+      bool disconnected = false;
 
       static const unsigned short DEFAULT_CHANNEL     = 0x0001;
       static const unsigned char  DEFAULT_TAG         = 0x01;

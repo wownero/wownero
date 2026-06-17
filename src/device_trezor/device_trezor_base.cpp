@@ -115,7 +115,8 @@ namespace trezor {
 
       // Enumerate all available devices
       TREZOR_AUTO_LOCK_DEVICE();
-      try {
+//      try {
+      // Don't catch exceptions here, we want the error strings to propagate to the GUI
         hw::trezor::t_transport_vect trans;
 
         MDEBUG("Enumerating Trezor devices...");
@@ -148,10 +149,10 @@ namespace trezor {
 #endif
         return true;
 
-      } catch(std::exception const& e){
-        MERROR("Open exception: " << e.what());
-        return false;
-      }
+//      } catch(std::exception const& e){
+//        MERROR("Open exception: " << e.what());
+//        return false;
+//      }
     }
 
     bool device_trezor_base::disconnect() {
@@ -263,10 +264,46 @@ namespace trezor {
       }
     }
 
+#ifdef WITH_TREZOR_DEBUGGING
+        #define TREZOR_CALLBACK(method, ...) do { \
+  if (m_debug_callback) m_debug_callback->method(__VA_ARGS__); \
+  if (m_callback) m_callback->method(__VA_ARGS__);             \
+}while(0)
+#define TREZOR_CALLBACK_GET(VAR, method, ...) do { \
+  if (m_debug_callback) VAR = m_debug_callback->method(__VA_ARGS__); \
+  if (m_callback) VAR = m_callback->method(__VA_ARGS__);             \
+}while(0)
+
+    void device_trezor_base::setup_debug(){
+      if (!m_debug){
+        return;
+      }
+
+      if (!m_debug_callback){
+        CHECK_AND_ASSERT_THROW_MES(m_transport, "Transport does not exist");
+        auto debug_transport = m_transport->find_debug();
+        if (debug_transport) {
+          m_debug_callback = std::make_shared<trezor_debug_callback>(debug_transport);
+        } else {
+          MDEBUG("Transport does not have debug link option");
+        }
+      }
+    }
+
+#else
+#define TREZOR_CALLBACK(method, ...) do { if (m_callback) m_callback->method(__VA_ARGS__); } while(0)
+#define TREZOR_CALLBACK_GET(VAR, method, ...) VAR = (m_callback ? m_callback->method(__VA_ARGS__) : boost::none)
+#endif
+
     void device_trezor_base::write_raw(const google::protobuf::Message * msg){
       require_connected();
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-      this->get_transport()->write(*msg);
+      try {
+          this->get_transport()->write(*msg);
+      }
+      catch (const exc::CommunicationException &e) {
+          TREZOR_CALLBACK(on_error, e.what());
+      }
     }
 
     GenericMessage device_trezor_base::read_raw(){
@@ -395,37 +432,6 @@ namespace trezor {
       TREZOR_AUTO_LOCK_CMD();
       device_state_initialize_unsafe();
     }
-
-#ifdef WITH_TREZOR_DEBUGGING
-#define TREZOR_CALLBACK(method, ...) do { \
-  if (m_debug_callback) m_debug_callback->method(__VA_ARGS__); \
-  if (m_callback) m_callback->method(__VA_ARGS__);             \
-}while(0)
-#define TREZOR_CALLBACK_GET(VAR, method, ...) do { \
-  if (m_debug_callback) VAR = m_debug_callback->method(__VA_ARGS__); \
-  if (m_callback) VAR = m_callback->method(__VA_ARGS__);             \
-}while(0)
-
-    void device_trezor_base::setup_debug(){
-      if (!m_debug){
-        return;
-      }
-
-      if (!m_debug_callback){
-        CHECK_AND_ASSERT_THROW_MES(m_transport, "Transport does not exist");
-        auto debug_transport = m_transport->find_debug();
-        if (debug_transport) {
-          m_debug_callback = std::make_shared<trezor_debug_callback>(debug_transport);
-        } else {
-          MDEBUG("Transport does not have debug link option");
-        }
-      }
-    }
-
-#else
-#define TREZOR_CALLBACK(method, ...) do { if (m_callback) m_callback->method(__VA_ARGS__); } while(0)
-#define TREZOR_CALLBACK_GET(VAR, method, ...) VAR = (m_callback ? m_callback->method(__VA_ARGS__) : boost::none)
-#endif
 
     void device_trezor_base::on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg)
     {

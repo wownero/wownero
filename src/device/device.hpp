@@ -78,6 +78,7 @@ namespace hw {
     public:
         virtual void on_button_request(uint64_t code=0) {}
         virtual void on_button_pressed() {}
+        virtual void on_error(const std::string &message, unsigned int error_code = 0) {}
         virtual boost::optional<epee::wipeable_string> on_pin_request() { return boost::none; }
         virtual boost::optional<epee::wipeable_string> on_passphrase_request(bool & on_device) { on_device = true; return boost::none; }
         virtual void on_progress(const device_progress& event) {}
@@ -126,6 +127,8 @@ namespace hw {
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
 
+        virtual bool disconnected() { return false; }
+
         virtual bool set_mode(device_mode mode) { this->mode = mode; return true; }
         virtual device_mode get_mode() const { return mode; }
 
@@ -151,6 +154,7 @@ namespace hw {
         /* ======================================================================= */
         virtual bool  get_public_address(cryptonote::account_public_address &pubkey) = 0;
         virtual bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey)  = 0;
+        virtual bool  set_secret_view_key(const crypto::secret_key &viewkey) { return true; };
         virtual bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) = 0;
 
         /* ======================================================================= */

@@ -31,6 +31,7 @@
 #include "unsigned_transaction.h"
 #include "wallet.h"
 #include "common_defines.h"
+#include "transaction_construction_info.h"
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
@@ -81,6 +82,35 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   {
     bool r = m_wallet.m_wallet->sign_tx(m_unsigned_tx_set, signedFileName, ptx);
     if (!r)
+    {
+      m_errorString = tr("Failed to sign transaction");
+      m_status = Status_Error;
+      return false;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    m_errorString = string(tr("Failed to sign transaction")) + e.what();
+    m_status = Status_Error;
+    return false;
+  }
+  return true;
+}
+
+bool UnsignedTransactionImpl::signToStr(std::string &data)
+{
+  if(m_wallet.watchOnly())
+  {
+     m_errorString = tr("This is a watch only wallet");
+     m_status = Status_Error;
+     return false;
+  }
+  std::vector<tools::wallet2::pending_tx> ptx;
+  tools::wallet2::signed_tx_set signed_txes;
+  try
+  {
+    data = m_wallet.m_wallet->sign_tx_dump_to_str(m_unsigned_tx_set, ptx, signed_txes);
+    if (data.empty())
     {
       m_errorString = tr("Failed to sign transaction");
       m_status = Status_Error;
@@ -313,6 +343,26 @@ uint64_t UnsignedTransactionImpl::minMixinCount() const
         }
     }
     return min_mixin;
+}
+
+TransactionConstructionInfo * UnsignedTransactionImpl::transaction(int index) const {
+    if (index < 0)
+        return nullptr;
+    auto index_ = static_cast<unsigned>(index);
+    return index_ < m_constructionInfo.size() ? m_constructionInfo[index_] : nullptr;
+}
+
+void UnsignedTransactionImpl::refresh() {
+    for (auto t : m_constructionInfo)
+        delete t;
+    m_constructionInfo.clear();
+
+    for (const auto& p : m_unsigned_tx_set.txes)
+        m_constructionInfo.push_back(new TransactionConstructionInfoImpl(m_wallet, p));
+}
+
+std::vector<TransactionConstructionInfo*> UnsignedTransactionImpl::getAll() const {
+    return m_constructionInfo;
 }
 
 } // namespace

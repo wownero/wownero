@@ -35,6 +35,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "common/base58.h"
+#include "string_coding.h"
 
 #include <memory>
 #include <vector>
@@ -191,6 +192,15 @@ uint64_t PendingTransactionImpl::fee() const
     return result;
 }
 
+uint64_t PendingTransactionImpl::weight(int index) const
+{
+    auto index_ = static_cast<unsigned>(index);
+    if (index < 0 || index_ >= m_pending_tx.size()) {
+        return 0;
+    }
+    return cryptonote::get_transaction_weight(m_pending_tx[index].tx);
+}
+
 uint64_t PendingTransactionImpl::txCount() const
 {
     return m_pending_tx.size();
@@ -262,5 +272,52 @@ std::vector<std::string> PendingTransactionImpl::signersKeys() const {
 
     return keys;
 }
+
+std::string PendingTransactionImpl::unsignedTxToBin() const {
+    return m_wallet.m_wallet->dump_tx_to_str(m_pending_tx);
+}
+
+std::string PendingTransactionImpl::unsignedTxToBase64() const {
+    return epee::string_encoding::base64_encode(m_wallet.m_wallet->dump_tx_to_str(m_pending_tx));
+}
+
+std::string PendingTransactionImpl::signedTxToHex(int index) const {
+    auto index_ = static_cast<unsigned>(index);
+    if (index < 0 || index_ >= m_pending_tx.size()) {
+        return "";
+    }
+
+    return epee::string_tools::buff_to_hex_nodelimer(cryptonote::tx_to_blob(m_pending_tx[index_].tx));
+}
+
+size_t PendingTransactionImpl::signedTxSize(int index) const {
+    auto index_ = static_cast<unsigned>(index);
+    if (index < 0 || index_ >= m_pending_tx.size()) {
+        return 0;
+    }
+
+    return cryptonote::tx_to_blob(m_pending_tx[index_].tx).size();
+}
+
+PendingTransactionInfo * PendingTransactionImpl::transaction(int index) const {
+    if (index < 0)
+        return nullptr;
+    auto index_ = static_cast<unsigned>(index);
+    return index_ < m_pending_tx_info.size() ? m_pending_tx_info[index_] : nullptr;
+}
+
+void PendingTransactionImpl::refresh() {
+    for (auto t : m_pending_tx_info)
+        delete t;
+    m_pending_tx_info.clear();
+
+    for (const auto& p : m_pending_tx)
+        m_pending_tx_info.push_back(new PendingTransactionInfoImpl(m_wallet, p));
+}
+
+std::vector<PendingTransactionInfo*> PendingTransactionImpl::getAll() const {
+    return m_pending_tx_info;
+}
+
 
 }

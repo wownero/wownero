@@ -146,6 +146,16 @@ DISABLE_VS_WARNINGS(4244 4345)
     }
   }
   //-----------------------------------------------------------------
+  void account_base::set_view_key(const crypto::secret_key &view_secret_key)
+  {
+      m_keys.m_view_secret_key = view_secret_key;
+  }
+  //-----------------------------------------------------------------
+  void account_base::forget_view_key()
+  {
+      m_keys.m_view_secret_key = crypto::null_skey;
+  }
+  //-----------------------------------------------------------------
   void account_base::forget_spend_key()
   {
     m_keys.m_spend_secret_key = crypto::secret_key();

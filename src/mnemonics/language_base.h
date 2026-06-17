@@ -128,8 +128,9 @@ namespace Language
         word_map[*it] = ii;
         if ((*it).size() < unique_prefix_length)
         {
-          if (flags & ALLOW_SHORT_WORDS)
-            MINFO(language_name << " word '" << *it << "' is shorter than its prefix length, " << unique_prefix_length);
+          if (flags & ALLOW_SHORT_WORDS) {
+          //            MWARNING(language_name << " word '" << *it << "' is shorter than its prefix length, " << unique_prefix_length);
+          }
           else
             throw std::runtime_error("Too short word in " + language_name + " word list: " + *it);
         }
