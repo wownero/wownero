@@ -96,9 +96,16 @@ enable_language(C ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(APPLE)
+  # C++17 aligned new/delete (std::align_val_t) require macOS deployment target >= 10.14. The depends
+  # macOS toolchain targets older (and Apple Silicon aarch64 cross-builds hit this on boost/any.hpp).
+  # Disable aligned allocation so wownero builds under C++17 on all macOS targets.
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-aligned-allocation")
+endif()
 
 function (die msg)
   if (NOT WIN32)
