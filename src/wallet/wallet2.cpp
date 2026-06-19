@@ -9920,9 +9920,11 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
     std::unique_ptr<gamma_picker> gamma;
     if (has_rct) {
-      if (m_nettype == MAINNET) {
-        check_rct_distribution();
-      }
+      // wowlet: removed feather's check_rct_distribution() here. It asserts the daemon's output distribution
+      // against a hardcoded MONERO checkpoint (OUTPUT_DISTRIBUTION_CHECKPOINT_HEIGHT 2567211) that wownero's
+      // far-shorter chain can never reach -> "Output distribution size too small" -> sending was impossible.
+      // Upstream wownero AND monero wallet2 have no such check; m_rct_offsets is still populated and used by
+      // the gamma picker below, so decoy/ring selection is unaffected.
       gamma.reset(new gamma_picker(m_rct_offsets.offsets()));
     }
     size_t num_selected_transfers = 0;
