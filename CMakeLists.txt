@@ -1128,7 +1128,16 @@ if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32;bcrypt)
   if(DEPENDS)
-    set(ICU_LIBRARIES icuio icui18n icuuc icudata icutu iconv)
+    # Link ICU only if the depends tree actually ships it. monero's own depends builds boost WITH static
+    # ICU (so its wallet/epee reference ICU symbols); feather's (wowlet) depends builds boost
+    # --without-icu and ships no ICU/libiconv, so nothing references ICU symbols and listing
+    # -licu*/-liconv only breaks the static mingw link. Probe the prefix and adapt.
+    find_library(ICUUC_LIB NAMES icuuc)
+    if(ICUUC_LIB)
+      set(ICU_LIBRARIES icuio icui18n icuuc icudata icutu iconv)
+    else()
+      set(ICU_LIBRARIES "")
+    endif()
   else()
     # This is an extremely ugly hack to get around Boost not being built with static ICU.
     # We reported the issue, we are waiting for upstream to fix this issue: https://github.com/boostorg/boost/issues/1079#issue-3384962885
