@@ -1708,8 +1708,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   }
   b.timestamp = time(NULL);
 
-  uint64_t median_ts;
-  if (!check_block_timestamp(b, median_ts))
+  uint64_t median_ts{};
+  if (!check_block_timestamp_main_chain(b, &median_ts))
   {
     b.timestamp = median_ts;
   }
@@ -4087,16 +4087,37 @@ uint64_t Blockchain::get_adjusted_time(uint64_t height) const
   return (adjusted_current_block_ts < median_ts ? adjusted_current_block_ts : median_ts);
 }
 //------------------------------------------------------------------
-//TODO: revisit, has changed a bit on upstream
-bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t* median_ts_out) const
 {
+  if (median_ts_out)
+    *median_ts_out = 0;
+
   LOG_PRINT_L3("Blockchain::" << __func__);
-  median_ts = epee::misc_utils::median(timestamps);
+
+  // Wownero: the future limit and window depend on the hard fork version.
+  const uint8_t version = get_current_hard_fork_version();
+  const uint64_t cryptonote_block_future_time_limit = version >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
+  const size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+
+  if(b.timestamp > (uint64_t)time(NULL) + cryptonote_block_future_time_limit)
+  {
+    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", "
+      << b.timestamp << ", bigger than local time + " << cryptonote_block_future_time_limit << " seconds");
+    return false;
+  }
+
+  // if not enough blocks, no proper median yet, return true
+  if(timestamps.size() < blockchain_timestamp_check_window)
+  {
+    return true;
+  }
+
+  const uint64_t median_ts = epee::misc_utils::median(timestamps);
+  if (median_ts_out)
+    *median_ts_out = median_ts;
 
   if(b.timestamp < median_ts)
   {
-    uint8_t version = get_current_hard_fork_version();
-    size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
     MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", less than median of last " << blockchain_timestamp_check_window << " blocks, " << median_ts);
     return false;
   }
@@ -4111,37 +4132,26 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 //   true if the block's timestamp is not less than the timestamp of the
 //       median of the selected blocks
 //   false otherwise
-bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp_main_chain(const block& b, uint64_t* median_ts_out) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  uint8_t version = get_current_hard_fork_version();
-  uint64_t cryptonote_block_future_time_limit = version >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
-  size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
-  if(b.timestamp > (uint64_t)time(NULL) + cryptonote_block_future_time_limit)
-  {
-    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", bigger than local time + 10 minutes");
-    return false;
-  }
+  const uint8_t version = get_current_hard_fork_version();
+  const size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
 
   const auto h = m_db->height();
 
-  // if not enough blocks, no proper median yet, return true
-  if(h < blockchain_timestamp_check_window)
-  {
-    return true;
-  }
-
   std::vector<uint64_t> timestamps;
 
-  // need most recent 60 blocks, get index of first of those
-  size_t offset = h - blockchain_timestamp_check_window;
+  // need most recent window blocks, get index of first of those
+  size_t offset = (h >= blockchain_timestamp_check_window) ? (h - blockchain_timestamp_check_window) : 0;
+  assert(offset <= h);
   timestamps.reserve(h - offset);
   for(;offset < h; ++offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
   }
 
-  return check_block_timestamp(timestamps, b, median_ts);
+  return check_block_timestamp(timestamps, b, median_ts_out);
 }
 //------------------------------------------------------------------
 bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
@@ -4218,7 +4228,7 @@ leave:
 
   // make sure block timestamp is not less than the median timestamp
   // of a set number of the most recent blocks.
-  if(!check_block_timestamp(bl))
+  if(!check_block_timestamp_main_chain(bl))
   {
     MERROR_VER("Block with id: " << id << std::endl << "has invalid timestamp: " << bl.timestamp);
     bvc.m_verifivation_failed = true;
