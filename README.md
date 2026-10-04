@@ -83,7 +83,7 @@ Dates are provided in the format YYYY-MM-DD.
 | -                             | 2020-06-28 | Hallucinogenic Hypnotoad  | v0.8.0.0                | v0.8.0.2                    | Dandelion++ support
 | 253,999                       | 2020-10-09 | Illiterate Illuminati  | v0.9.0.0                | v0.9.3.3                    | Dynamic coinbase unlock (up to 1 mo.), Deterministic unlock times, Enforce maximum coinbase amount, show_qr_code wallet command, CLSAG
 | 331,170                       | 2021-07-04 | Junkie Jeff  | v0.10.0.0               | v0.10.2.0                   | Bulletproofs+, Miner Block Header Signing, Vote by Block, Change coinbase unlock time to 1 day, Reset difficulty and switch back to Monero's difficulty algorithm
-| 514,000                       | 2023-04-01 | Kunty Karen  | v0.11.0.0               | v0.11.4.0                   | View tags, fee changes, adjusted dynamic block weight algorithm, multisig security fixes, RPC broadcast node donation sub-address, Limit tx_extra max size to ~1kb, 12-hour difficulty adjustment window
+| 514,000                       | 2023-04-01 | Kunty Karen  | v0.11.0.0               | v0.11.5.0                   | View tags, fee changes, adjusted dynamic block weight algorithm, multisig security fixes, RPC broadcast node donation sub-address, Limit tx_extra max size to ~1kb, 12-hour difficulty adjustment window
 
 X's indicate that these details have not been determined as of commit date.
 
