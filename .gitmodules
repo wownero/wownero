@@ -10,6 +10,6 @@
 	branch = monero
 [submodule "external/randomwow"]
 	path = external/randomwow
-	url = https://codeberg.org/wownero/RandomWOW
+	url = https://github.com/wownero/RandomWOW
         branch = 1.2.1-wow
 
