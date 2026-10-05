@@ -26,7 +26,7 @@ packages:
 - "python"
 - "cmake"
 remotes:
-- "url": "https://codeberg.org/wownero/wownero.git"
+- "url": "https://github.com/wownero/wownero.git"
   "dir": "wownero"
 files: []
 script: |

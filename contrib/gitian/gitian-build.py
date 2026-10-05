@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-gsigs = 'https://codeberg.org/wownero/gitian.sigs.git'
+gsigs = 'https://github.com/wownero/gitian.sigs.git'
 gbrepo = 'https://github.com/devrandom/gitian-builder.git'
 
 platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
@@ -113,7 +113,7 @@ def main():
     parser = argparse.ArgumentParser(description='Script for running full Gitian builds.', usage='%(prog)s [options] signer version')
     parser.add_argument('-c', '--commit', action='store_true', dest='commit', help='Indicate that the version argument is for a commit or branch')
     parser.add_argument('-p', '--pull', action='store_true', dest='pull', help='Indicate that the version argument is the number of a github repository pull request')
-    parser.add_argument('-u', '--url', dest='url', default='https://codeberg.org/wownero/wownero', help='Specify the URL of the repository. Default is %(default)s')
+    parser.add_argument('-u', '--url', dest='url', default='https://github.com/wownero/wownero', help='Specify the URL of the repository. Default is %(default)s')
     parser.add_argument('-v', '--verify', action='store_true', dest='verify', help='Verify the Gitian build')
     parser.add_argument('-b', '--build', action='store_true', dest='build', help='Do a Gitian build')
     parser.add_argument('-B', '--buildsign', action='store_true', dest='buildsign', help='Build both signed and unsigned binaries')

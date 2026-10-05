@@ -1,6 +1,6 @@
 # ~~Mo~~Wownero -  Such privacy! Many coins! Wow!
 
-<img src="https://codeberg.org/wownero/meta/raw/commit/e7bd4f0e4520b7dc0a7b0bd01083b12b2667365b/images/wow.gif">
+<img src="https://raw.githubusercontent.com/wownero/meta/e7bd4f0e4520b7dc0a7b0bd01083b12b2667365b/images/wow.gif">
 
 ## Introduction
 
@@ -15,7 +15,7 @@ Unlike Opposing Projects.
 - Twitter: [@w0wn3r0](https://twitter.com/w0wn3r0)
 - Reddit: [/r/wownero](https://www.reddit.com/r/wownero)
 - Mail: [wownero@wownero.org](mailto:wownero@wownero.org)
-- Git: [codeberg.org/wownero/wownero](https://codeberg.org/wownero/wownero)
+- Git: [github.com/wownero/wownero](https://github.com/wownero/wownero)
 - Matrix General Chat Room: [#wownero-gen:wowne.ro](https://matrix.to/#/#wownero-gen:wowne.ro)
 - IRC: [OFTC #wownero](https://webchat.oftc.net/?channels=wownero)
 - Discord: [discord.gg/q2rmxeYvWy](https://discord.gg/q2rmxeYvWy)
@@ -31,7 +31,7 @@ Unlike Opposing Projects.
 
 ## Wallets
 
-- Wonero CLI Wallet: [codeberg.org/wownero/wownero](https://codeberg.org/wownero/wownero/releases)
+- Wonero CLI Wallet: [github.com/wownero/wownero](https://github.com/wownero/wownero/releases)
 - Stack Wallet iOS & Android Mobile Wallet: [stackwallet.com](https://stackwallet.com)
 
 ## Blockchain Explorers
@@ -62,7 +62,7 @@ BTC: `bc1qcw9zglp3fxyl25zswemw7jczlqryms2lsmu464`
 
 If you have a fix or code change, feel free to submit it as a pull request. Ahead of a scheduled software upgrade, a development branch will be created with the new release version tag. Pull requests that address bugs should be made to Master. Pull requests that require review and testing (generally, optimizations and new features) should be made to the development branch. All pull requests will be considered safe until the US dollar valuation of 1 Wownero equals $1000. After this valuation has been reached, more research will be needed to introduce experimental cryptography and/or code into the codebase.
 
-Things to Do, Work in Progress, and Help Wanted tasks are tracked in the [Meta](https://codeberg.org/wownero/meta/issues) repo.
+Things to Do, Work in Progress, and Help Wanted tasks are tracked in the [Meta](https://github.com/wownero/meta/issues) repo.
 
 Join `#wownero` on IRC OFTC to participate in development conversation.
 
@@ -110,7 +110,7 @@ Packaging for your favorite distribution would be a welcome contribution!
 
         sudo pacman -Syu --needed base-devel cmake boost openssl zeromq libpgm unbound libsodium libunwind xz readline expat gtest python3 ccache doxygen graphviz qt5-tools hidapi libusb protobuf systemd
         
-        git clone https://codeberg.org/wownero/wownero && cd wownero
+        git clone https://github.com/wownero/wownero && cd wownero
         
         make
 
@@ -118,7 +118,7 @@ Packaging for your favorite distribution would be a welcome contribution!
 
         sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libexpat1-dev libpgm-dev qttools5-dev-tools libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libudev-dev libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev python3 ccache doxygen graphviz
         
-        git clone https://codeberg.org/wownero/wownero && cd wownero
+        git clone https://github.com/wownero/wownero && cd wownero
         
         make
 
