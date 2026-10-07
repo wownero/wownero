@@ -730,12 +730,14 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("192.99.8.110:34567"); // node.monerodevs.org
-      full_addrs.insert("37.187.74.171:34567"); // node2.monerodevs.org
-      full_addrs.insert("88.99.195.15:34567"); // node3.monerodevs.org
-      full_addrs.insert("158.69.60.225:34567");   // explore.wownero.com
-      full_addrs.insert("195.94.188.201:34567"); // spippolatori.it
-      full_addrs.insert("45.237.33.156:34567"); // wow.cypher.tec.br
+      full_addrs.insert("91.190.100.59:34567");   // node.wownero.org
+      full_addrs.insert("45.84.59.17:34567");     // wow.smirk.cash
+      full_addrs.insert("192.99.8.110:34567");    // node.monerodevs.org
+      full_addrs.insert("37.187.74.171:34567");   // node2.monerodevs.org
+      full_addrs.insert("88.99.195.15:34567");    // node3.monerodevs.org
+      full_addrs.insert("167.114.119.46:34567");  // hercules.cypherstack.com
+      full_addrs.insert("95.216.7.121:34567");    // Hetzner, FI
+      full_addrs.insert("15.204.236.125:34567");  // OVH, US
     }
     return full_addrs;
   }
