@@ -72,3 +72,7 @@ set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")
 install(TARGETS daemon DESTINATION bin)
+
+if(WOWNERO_FCMP_TESTNET AND TARGET daemon)
+  set_property(TARGET daemon PROPERTY OUTPUT_NAME "wownero-fcmp-testnetd")
+endif()

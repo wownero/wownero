@@ -36,6 +36,10 @@
 #include "cryptonote_basic.h"
 #include "verification_context.h"
 #include "difficulty.h"
+#ifdef WOWNERO_FCMP_TESTNET
+#include <optional>
+#include "wow_miner.h"
+#endif
 #include "math_helper.h"
 #include "syncobj.h"
 #include "cryptonote_basic/blobdatatype.h"
@@ -138,6 +142,9 @@ namespace cryptonote
     i_miner_handler* m_phandler;
     get_block_hash_t m_gbh;
     account_public_address m_mine_address;
+#ifdef WOWNERO_FCMP_TESTNET
+    std::optional<wow_miner_account> m_wow_miner_account;
+#endif
     epee::math_helper::once_a_time_seconds<5> m_update_block_template_interval;
     epee::math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
     epee::math_helper::once_a_time_seconds<1> m_autodetect_interval;

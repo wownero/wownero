@@ -137,3 +137,8 @@ set(enabled_tests
 
 add_custom_target(tests DEPENDS enabled_tests)
 set_property(TARGET tests PROPERTY FOLDER "${folder}")
+
+option(BUILD_WOW_MINER_PROOF_EXPERIMENT "Build the unaudited Carrot miner proof experiment." OFF)
+if(BUILD_WOW_MINER_PROOF_EXPERIMENT)
+  add_subdirectory(wow_miner_proof)
+endif()

@@ -54,6 +54,10 @@ set(cryptonote_basic_sources
   merge_mining.cpp
   miner.cpp)
 
+if(WOWNERO_FCMP_TESTNET)
+  list(APPEND cryptonote_basic_sources wow_miner.cpp)
+endif()
+
 set(cryptonote_basic_headers)
 
 monero_find_all_headers(cryptonote_basic_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -81,3 +85,7 @@ target_link_libraries(cryptonote_basic
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
+
+if(WOWNERO_FCMP_TESTNET)
+  target_link_libraries(cryptonote_basic PUBLIC carrot_core)
+endif()

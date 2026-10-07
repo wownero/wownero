@@ -46,6 +46,16 @@
 #include "daemon/command_line_args.h"
 #include "version.h"
 
+namespace
+{
+#ifdef WOWNERO_FCMP_TESTNET
+constexpr const char *project_name = "Wownero FCMP testnet";
+#else
+constexpr const char *project_name = "Monero";
+#endif
+}
+
+
 #ifdef STACK_TRACE
 #include "common/stack_trace.h"
 #endif // STACK_TRACE
@@ -192,7 +202,7 @@ int main(int argc, char const * argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+      std::cout << project_name << " '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
       std::cout << "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]" << std::endl << std::endl;
       std::cout << visible_options << std::endl;
       return 0;
@@ -201,7 +211,7 @@ int main(int argc, char const * argv[])
     // Monero Version
     if (command_line::get_arg(vm, command_line::arg_version))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
+      std::cout << project_name << " '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
       return 0;
     }
 
@@ -246,6 +256,14 @@ int main(int argc, char const * argv[])
       std::cerr << "Can't specify more than one of --testnet and --stagenet and --regtest" << ENDL;
       return 1;
     }
+
+#ifdef WOWNERO_FCMP_TESTNET
+    if (cryptonote::core::get_network_type_from_args(vm) != cryptonote::TESTNET)
+    {
+      std::cerr << "Wownero FCMP research daemon requires --testnet; mainnet, stagenet and regtest are disabled." << std::endl;
+      return 1;
+    }
+#endif
 
     // data_dir
     //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
@@ -295,7 +313,7 @@ int main(int argc, char const * argv[])
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     // logging is now set up
-    MGINFO("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
+    MGINFO(project_name << " '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
 
     // If there are positional options, we're running a daemon command
     {

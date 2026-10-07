@@ -832,6 +832,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   std::set<std::string> node_server<t_payload_net_handler>::get_ip_seed_nodes() const
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return {};
+#endif
     std::set<std::string> full_addrs;
     if (m_nettype == cryptonote::TESTNET)
     {
@@ -867,6 +870,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   std::set<std::string> node_server<t_payload_net_handler>::get_dns_seed_nodes()
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return {};
+#endif
     if (!m_exclusive_peers.empty() || m_offline)
     {
       return {};
@@ -983,6 +989,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes(epee::net_utils::zone zone)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return {};
+#endif
     switch (zone)
     {
     case epee::net_utils::zone::public_:
@@ -2202,6 +2211,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::update_dns_blocklist()
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return true;
+#endif
     if (!m_enable_dns_blocklist)
       return true;
     if (m_nettype != cryptonote::MAINNET)

@@ -120,12 +120,14 @@ static inline int disabled_flags(void) {
       flags = 0;
     }
 
+#ifndef WOWNERO_FCMP_TESTNET
     if (flags & RANDOMX_FLAG_V2)
     {
       mwarning(RX_LOGCAT,
         "MONERO_RANDOMX_UMASK would mask RandomX V2, ignoring that bit...");
       flags &= ~RANDOMX_FLAG_V2;
     }
+#endif
   }
 
   return flags;
@@ -148,9 +150,11 @@ static randomx_flags get_variant_flags(const int variant) {
   {
   case RX_VARIANT_1:
     break;
+#ifndef WOWNERO_FCMP_TESTNET
   case RX_VARIANT_LATEST:
   case RX_VARIANT_2:
     return RANDOMX_FLAG_V2;
+#endif
   default:
     local_abort("Unrecognized RandomX variant");
   }
@@ -543,7 +547,11 @@ void rx_slow_hash(const char *seedhash, const int variant, const void *data, siz
 }
 
 void rx_commitment(const void *data, size_t length, const void *rx_hash, char *result_commitment) {
+#ifdef WOWNERO_FCMP_TESTNET
+  local_abort("RandomX v2 commitments are unavailable in the RandomWOW testnet profile");
+#else
   randomx_calculate_commitment(data, length, rx_hash, result_commitment);
+#endif
 }
 
 void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads) {

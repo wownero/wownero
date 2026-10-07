@@ -889,6 +889,14 @@ namespace cryptonote
       return false;
     }
 
+    if (!check_tx_inputs_ring_members_overflow(tx, hf_version))
+    {
+      MERROR_VER("tx ring members overflowed");
+      tvc.m_verifivation_failed = true;
+      tvc.m_invalid_input = true;
+      return false;
+    }
+
     if (!check_tx_inputs_keyimages_domain(tx))
     {
       MERROR_VER("tx uses key image not in the valid domain");
@@ -1039,6 +1047,26 @@ namespace cryptonote
         for (size_t n = 1; n < tokey_in.key_offsets.size(); ++n)
           if (tokey_in.key_offsets[n] == 0)
             return false;
+      }
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_tx_inputs_ring_members_overflow(const transaction& tx, const uint8_t hf_version)
+  {
+    if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      for(const auto& in: tx.vin)
+      {
+        CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+        const std::vector<uint64_t> absolute_offsets = relative_output_offsets_to_absolute(tokey_in.key_offsets);
+        for (size_t i = 1; i < absolute_offsets.size(); ++i)
+        {
+          const uint64_t prev_offset = absolute_offsets[i-1];
+          const uint64_t next_offset = absolute_offsets[i];
+          if (prev_offset > next_offset)
+            return false;
+        }
       }
     }
     return true;
@@ -1218,9 +1246,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
   {
-    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
+    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -1270,6 +1298,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
   {
+    const std::unordered_set<crypto::hash> tx_hashes(b.tx_hashes.cbegin(), b.tx_hashes.cend());
+    CHECK_AND_ASSERT_THROW_MES(tx_hashes.size() == b.tx_hashes.size(), "Duplicate transaction hashes in block");
+
     block_complete_entry bce;
     bce.block = cryptonote::block_to_blob(b);
     bce.block_weight = 0; // we can leave it to 0, those txes aren't pruned
@@ -1623,6 +1654,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_updates()
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return true;
+#endif
     static const char software[] = "monero";
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);

@@ -238,7 +238,7 @@ namespace cryptonote
       * @note see Blockchain::create_block_template
       */
      bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) final;
-     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive = true);
 
      /**
       * @copydoc Blockchain::get_miner_data
@@ -907,6 +907,16 @@ namespace cryptonote
       * @return false if any ring uses duplicate members, true otherwise
       */
      static bool check_tx_inputs_ring_members_diff(const transaction& tx, const uint8_t hf_version);
+
+     /**
+      * @brief verify that ring member absolute offsets don't overflow
+      *
+      * @param tx the transaction to check
+      * @param hf_version the hard fork version rules to use
+      *
+      * @return false if any absolute offsets overflowed, true otherwise
+      */
+     static bool check_tx_inputs_ring_members_overflow(const transaction& tx, const uint8_t hf_version);
 
      /**
       * @brief verify that each input key image in a transaction is in

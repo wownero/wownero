@@ -48,6 +48,9 @@
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#ifdef WOWNERO_FCMP_TESTNET
+#include "crypto/wow_miner_proof.h"
+#endif
 #include "ringct/rctTypes.h"
 #include "device/device.hpp"
 #include "cryptonote_basic/fwd.h"
@@ -611,6 +614,10 @@ namespace cryptonote
     uint64_t timestamp;
     crypto::hash  prev_id;
     uint32_t nonce;
+#ifdef WOWNERO_FCMP_TESTNET
+    wownero::research::miner_proof wow_miner_signature{};
+    uint16_t wow_vote = 0;
+#endif
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(major_version)
@@ -618,6 +625,14 @@ namespace cryptonote
       VARINT_FIELD(timestamp)
       FIELD(prev_id)
       FIELD(nonce)
+#ifdef WOWNERO_FCMP_TESTNET
+      if (major_version >= HF_VERSION_CARROT)
+      {
+        ar.tag("wow_miner_signature");
+        ar.serialize_blob(wow_miner_signature.data(), wow_miner_signature.size());
+        FIELD(wow_vote)
+      }
+#endif
     END_SERIALIZE()
   };
 

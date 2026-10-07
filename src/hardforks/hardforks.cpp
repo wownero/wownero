@@ -81,6 +81,15 @@ const hardfork_t mainnet_hard_forks[] = {
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 const uint64_t mainnet_hard_fork_version_1_till = 1009826;
 
+#ifdef WOWNERO_FCMP_TESTNET
+const hardfork_t testnet_hard_forks[] = {
+  { 1, 0, 0, 1 },
+  { 17, 1, 0, 2 },
+  { 18, 2, 0, 3 },
+};
+const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
+const uint64_t testnet_hard_fork_version_1_till = 0;
+#else
 const hardfork_t testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
@@ -111,6 +120,8 @@ const hardfork_t testnet_hard_forks[] = {
 };
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
 const uint64_t testnet_hard_fork_version_1_till = 624633;
+
+#endif
 
 const hardfork_t stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain

@@ -195,6 +195,9 @@ namespace cryptonote
 
   bool checkpoints::init_default_checkpoints(network_type nettype)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return nettype == TESTNET;
+#endif
     if (nettype == TESTNET)
     {
       ADD_CHECKPOINT2(0,     "48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b", "0x1");
@@ -313,6 +316,9 @@ namespace cryptonote
 
   bool checkpoints::load_checkpoints_from_dns(network_type nettype)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    return nettype == TESTNET;
+#endif
     std::vector<std::string> records;
 
     // All four MoneroPulse domains have DNSSEC on and valid

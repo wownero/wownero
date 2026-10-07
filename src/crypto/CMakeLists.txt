@@ -59,6 +59,10 @@ endif()
 
 include_directories(${RANDOMX_INCLUDE})
 
+if(WOWNERO_FCMP_TESTNET)
+  list(APPEND crypto_sources wow_miner_proof.cpp)
+endif()
+
 set(crypto_headers)
 
 monero_find_all_headers(crypto_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")

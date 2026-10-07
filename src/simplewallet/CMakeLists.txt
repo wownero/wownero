@@ -63,3 +63,7 @@ set_property(TARGET simplewallet
   PROPERTY
     OUTPUT_NAME "monero-wallet-cli")
 install(TARGETS simplewallet DESTINATION bin)
+
+if(WOWNERO_FCMP_TESTNET AND TARGET simplewallet)
+  set_property(TARGET simplewallet PROPERTY OUTPUT_NAME "wownero-fcmp-testnet-wallet-cli")
+endif()

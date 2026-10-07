@@ -92,6 +92,10 @@ namespace cryptonote
 
   namespace
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    const command_line::arg_descriptor<int> arg_wow_miner_key_fd = {
+      "wow-miner-key-fd", "Inherited pipe containing the Carrot mining account frame", -1};
+#endif
     const command_line::arg_descriptor<std::string> arg_extra_messages =  {"extra-messages-file", "Specify file for extra messages to include into coinbase transactions", "", true};
     const command_line::arg_descriptor<std::string> arg_start_mining =    {"start-mining", "Specify wallet address to mining for", "", true};
     const command_line::arg_descriptor<uint32_t>      arg_mining_threads =  {"mining-threads", "Specify mining threads count", 0, true};
@@ -285,6 +289,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   void miner::init_options(boost::program_options::options_description& desc)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    command_line::add_arg(desc, arg_wow_miner_key_fd);
+#endif
     command_line::add_arg(desc, arg_extra_messages);
     command_line::add_arg(desc, arg_start_mining);
     command_line::add_arg(desc, arg_mining_threads);
@@ -297,6 +304,16 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::init(const boost::program_options::variables_map& vm, network_type nettype)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    const int key_fd = command_line::get_arg(vm, arg_wow_miner_key_fd);
+    if (key_fd != -1)
+    {
+      wow_miner_account account;
+      CHECK_AND_ASSERT_MES(read_wow_miner_account(key_fd, account), false,
+        "Invalid mining account pipe: expected fd >= 3 and a complete canonical WOWMIN01 frame within five seconds");
+      m_wow_miner_account = account;
+    }
+#endif
     if(command_line::has_arg(vm, arg_extra_messages))
     {
       std::string buff;
@@ -370,6 +387,12 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::start(const account_public_address& adr, size_t threads_count, bool do_background, bool ignore_battery)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    account_public_address signer_address;
+    CHECK_AND_ASSERT_MES(m_wow_miner_account && m_wow_miner_account->address(signer_address), false,
+      "Mining requires an account supplied through --wow-miner-key-fd at startup");
+    CHECK_AND_ASSERT_MES(adr == signer_address, false, "Mining address does not match the supplied account");
+#endif
     m_block_reward = 0;
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
@@ -393,7 +416,11 @@ namespace cryptonote
       return false;
     }
 
+#ifdef WOWNERO_FCMP_TESTNET
+    CHECK_AND_ASSERT_MES(request_block_template(), false, "Unable to prepare Wownero mining template");
+#else
     request_block_template();//lets update block template
+#endif
 
     m_stop = false;
     m_thread_index = 0;
@@ -475,6 +502,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height, const crypto::hash *seed_hash)
   {
+#ifdef WOWNERO_FCMP_TESTNET
+    CHECK_AND_ASSERT_MES(bl.major_version < HF_VERSION_CARROT, false,
+      "Synchronous mining cannot sign Carrot blocks; use the account-backed miner");
+#endif
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
@@ -533,6 +564,9 @@ namespace cryptonote
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
+#ifdef WOWNERO_FCMP_TESTNET
+    crypto::secret_key miner_x, miner_y;
+#endif
     slow_hash_allocate_state();
     ++m_threads_active;
     while(!m_stop)
@@ -565,6 +599,14 @@ namespace cryptonote
         CRITICAL_REGION_END();
         local_template_ver = m_template_no;
         nonce = m_starter_nonce + th_local_index;
+#ifdef WOWNERO_FCMP_TESTNET
+        if (!prepare_wow_miner_output_keys(b, *m_wow_miner_account, miner_x, miner_y))
+        {
+          MERROR("Mining template does not pay the supplied Carrot account");
+          m_stop = true;
+          break;
+        }
+#endif
       }
 
       if(!local_template_ver)//no any set_block_template call
@@ -575,6 +617,14 @@ namespace cryptonote
       }
 
       b.nonce = nonce;
+#ifdef WOWNERO_FCMP_TESTNET
+      if (!sign_wow_miner_block(b, miner_x, miner_y))
+      {
+        MERROR("Failed to sign the Wownero mining candidate");
+        m_stop = true;
+        break;
+      }
+#endif
       crypto::hash h;
 
       if ((b.major_version >= RX_BLOCK_VERSION) && !rx_set)

@@ -40,6 +40,9 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "tx_pool.h"
 #include "blockchain.h"
+#ifdef WOWNERO_FCMP_TESTNET
+#include "cryptonote_basic/wow_miner.h"
+#endif
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/events.h"
 #include "cryptonote_config.h"
@@ -132,7 +135,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_long_term_block_weights_cache_rolling_median(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
-  m_btc_valid(false),
+  m_btc_include_sensitive(true), m_btc_valid(false),
   m_batch_success(true),
   m_prepare_height(0)
 {
@@ -169,7 +172,7 @@ bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
 // and collects the public key for each from the transaction it was included in
 // via the visitor passed to it.
 template <class visitor_t>
-bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
+bool Blockchain::scan_outputkeys_for_indexes(const uint8_t hf_version, size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -248,6 +251,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   }
 
   size_t count = 0;
+  uint64_t last_height = 0;
   for (const uint64_t& i : absolute_offsets)
   {
     try
@@ -260,6 +264,15 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
           output_index = outputs.at(count);
         else
           output_index = m_db->get_output_key(tx_in_to_key.amount, i).data;
+
+        if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+        {
+          // The legacy spend guard uses the final ring member height to exclude
+          // Carrot outputs. It must be the greatest height from FCMP activation.
+          // Preserve historical offset behavior before activation.
+          CHECK_AND_ASSERT_MES(output_index.height >= last_height, false, "Unexpected decreasing ring member height");
+          last_height = output_index.height;
+        }
 
         // call to the passed boost visitor to grab the public key for the output
         if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
@@ -720,7 +733,7 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
           curr_ring.reserve(pin->key_offsets.size());
           outputs_visitor vis{curr_ring};
 
-          if (!scan_outputkeys_for_indexes(tx.version, *pin, vis, tx_prefix_hash))
+          if (!scan_outputkeys_for_indexes(version, tx.version, *pin, vis, tx_prefix_hash))
           {
             dereferenced_mix_ring.clear();
             break;
@@ -1035,6 +1048,10 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   }
   size_t target = get_difficulty_target();
   difficulty_type diff = next_difficulty(timestamps, difficulties, target);
+#ifdef WOWNERO_FCMP_TESTNET
+  if (height > 0 && height <= 720)
+    diff = 100;
+#endif
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
   m_difficulty_for_next_block_top_hash = top_hash;
@@ -1395,6 +1412,10 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 
   // calculate the difficulty target for the block and return it
+#ifdef WOWNERO_FCMP_TESTNET
+  if (bei.height > 0 && bei.height <= 720)
+    return 100;
+#endif
   return next_difficulty(timestamps, cumulative_difficulties, target);
 }
 //------------------------------------------------------------------
@@ -1433,6 +1454,13 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
   }
 
   CHECK_AND_ASSERT_MES(check_output_types(b.miner_tx, hf_version), false, "miner transaction has invalid output type(s) in block " << get_block_hash(b));
+
+#ifdef WOWNERO_FCMP_TESTNET
+  if (hf_version >= HF_VERSION_CARROT)
+  {
+    CHECK_AND_ASSERT_MES(verify_wow_miner_block(b), false, "Invalid Carrot miner ownership proof or vote");
+  }
+#endif
 
   CHECK_AND_ASSERT_MES(check_transaction_output_pubkeys_order(b.miner_tx, hf_version),
     false, "FCMP++ miner transaction has unsorted outputs in block " << get_block_hash(b));
@@ -1658,7 +1686,7 @@ uint64_t Blockchain::get_current_cumulative_block_weight_median() const
 // in a lot of places.  That flag is not referenced in any of the code
 // nor any of the makefiles, however.  Need to look into whether or not it's
 // necessary at all.
-bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t median_weight;
@@ -1676,7 +1704,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     // this would be the case anyway if we'd lock, and the change happened
     // just after the block template was created
     if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce
-      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()) {
+      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()
+      && m_btc_include_sensitive == include_sensitive) {
       MDEBUG("Using cached template");
       const uint64_t now = time(NULL);
       if (m_btc.timestamp < now) // ensures it can't get below the median of the last few blocks
@@ -1814,7 +1843,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   size_t txs_weight;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version))
+  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version, include_sensitive))
   {
     return false;
   }
@@ -1933,16 +1962,16 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 #endif
 
     if (!from_block)
-      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, cumulative_weight, seed_height, seed_hash, pool_cookie);
+      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, cumulative_weight, seed_height, seed_hash, pool_cookie, include_sensitive);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
   return false;
 }
 //------------------------------------------------------------------
-bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
-  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
+  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash, include_sensitive);
 }
 //------------------------------------------------------------------
 bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -4328,7 +4357,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
 
   // collect output keys
   outputs_visitor vi(output_keys, *this, hf_version);
-  if (!scan_outputkeys_for_indexes(tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
+  if (!scan_outputkeys_for_indexes(hf_version, tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
   {
     MERROR_VER("Failed to get output keys for tx with amount = " << print_money(txin.amount) << " and count indexes " << txin.key_offsets.size());
     return false;
@@ -6261,7 +6290,7 @@ void Blockchain::invalidate_block_template_cache()
   m_btc_valid = false;
 }
 
-void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie)
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie, bool include_sensitive)
 {
   MDEBUG("Setting block template cache");
   m_btc = b;
@@ -6274,6 +6303,7 @@ void Blockchain::cache_block_template(const block &b, const cryptonote::account_
   m_btc_seed_hash = seed_hash;
   m_btc_seed_height = seed_height;
   m_btc_pool_cookie = pool_cookie;
+  m_btc_include_sensitive = include_sensitive;
   m_btc_valid = true;
 }
 

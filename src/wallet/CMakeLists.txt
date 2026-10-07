@@ -111,3 +111,7 @@ endif()
 
 add_subdirectory(api)
 add_subdirectory(wallet2_basic)
+
+if(WOWNERO_FCMP_TESTNET AND TARGET wallet_rpc_server)
+  set_property(TARGET wallet_rpc_server PROPERTY OUTPUT_NAME "wownero-fcmp-testnet-wallet-rpc")
+endif()

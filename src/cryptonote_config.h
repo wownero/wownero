@@ -34,39 +34,70 @@
 #include <stdexcept>
 #include <string>
 #include <boost/uuid/uuid.hpp>
+#ifdef WOWNERO_FCMP_TESTNET
+#include "wownero/testnet_genesis.h"
+#endif
 
 #define CRYPTONOTE_DNS_TIMEOUT_MS                       20000
 
 #define CRYPTONOTE_MAX_BLOCK_NUMBER                     500000000
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000
 #define CRYPTONOTE_MAX_TX_PER_BLOCK                     0x10000000
+#ifdef WOWNERO_FCMP_TESTNET
+#define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW 288
+#else
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            60
+#endif
 #define CURRENT_TRANSACTION_VERSION                     2
 #define CURRENT_BLOCK_MAJOR_VERSION                     1
 #define CURRENT_BLOCK_MINOR_VERSION                     0
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
+#ifdef WOWNERO_FCMP_TESTNET
+#define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE 4
+#else
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
+#endif
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(-1))
+#ifdef WOWNERO_FCMP_TESTNET
+#define EMISSION_SPEED_FACTOR_PER_MINUTE (24)
+#else
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define FINAL_SUBSIDY_PER_MINUTE ((uint64_t)0)
+#else
 #define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)300000000000) // 3 * pow(10, 11)
+#endif
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    60000 //size of block (bytes) after which reward for block calculated using block size
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1    20000 //size of block (bytes) after which reward for block calculated using block size - before first fork
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5    300000 //size of block (bytes) after which reward for block calculated using block size - second change, from v5
+#ifdef WOWNERO_FCMP_TESTNET
+#define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17 300000
+#else
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17   10000000 //STRESSNET SPECIFIC size of block (bytes) after which reward for block calculated using block size - third change, from v17
+#endif
 #define CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE   100000 // size in blocks of the long term block weight median window
 #define CRYPTONOTE_STRESSNET_BLOCK_WEIGHT_WINDOW_SIZE   10080  // size in blocks of the long term block weight median window [2 weeks] [STRESSNET ONLY!!!!]
 #define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V10    50
 #define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V17    8
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
+#ifdef WOWNERO_FCMP_TESTNET
+#define CRYPTONOTE_DISPLAY_DECIMAL_POINT 11
+#else
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
+#endif
 // COIN - number of smallest units in one coin
+#ifdef WOWNERO_FCMP_TESTNET
+#define COIN ((uint64_t)100000000000)
+#else
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
+#endif
 
 #define FEE_PER_KB_OLD                                  ((uint64_t)10000000000) // pow(10, 10)
 #define FEE_PER_KB                                      ((uint64_t)2000000000) // 2 * pow(10, 9)
@@ -80,11 +111,31 @@
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
 
+#ifdef WOWNERO_FCMP_TESTNET
+#define DIFFICULTY_TARGET_V2 300
+#else
 #define DIFFICULTY_TARGET_V2                            120  // seconds
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define DIFFICULTY_TARGET_V1 300
+#else
 #define DIFFICULTY_TARGET_V1                            60  // seconds - before first fork
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define DIFFICULTY_WINDOW 144
+#else
 #define DIFFICULTY_WINDOW                               720 // blocks
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define DIFFICULTY_LAG 3
+#else
 #define DIFFICULTY_LAG                                  15  // !!!
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define DIFFICULTY_CUT 12
+#else
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
+#endif
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
 
 
@@ -172,7 +223,11 @@
 
 #define RPC_IP_FAILS_BEFORE_BLOCK                       3
 
+#ifdef WOWNERO_FCMP_TESTNET
+#define CRYPTONOTE_NAME "wownero-fcmp-testnet"
+#else
 #define CRYPTONOTE_NAME                         "bitmonero"
+#endif
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
 #define CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME "lock.mdb"
 #define P2P_NET_DATA_FILENAME                   "p2pstate.bin"
@@ -209,8 +264,16 @@
 #define HF_VERSION_REJECT_UNMIXABLE_V1          17
 #define HF_VERSION_REJECT_MANY_MINER_OUTPUTS    17
 #define HF_VERSION_2026_SCALING                 17
+#ifdef WOWNERO_FCMP_TESTNET
+#define HF_VERSION_POW_COMMITMENT 255
+#else
 #define HF_VERSION_POW_COMMITMENT               17
+#endif
+#ifdef WOWNERO_FCMP_TESTNET
+#define HF_VERSION_RANDOMX_V2 255
+#else
 #define HF_VERSION_RANDOMX_V2                   17
+#endif
 #define MAX_HF_VERSION                          18
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
@@ -231,7 +294,11 @@
 // https://libera.monerologs.net/no-wallet-left-behind/20250505#c523568-c523686
 #define FCMP_PLUS_PLUS_MAX_INPUTS               128
 #define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
+#ifdef WOWNERO_FCMP_TESTNET
+#define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS 1
+#else
 #define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
+#endif
 #define FCMP_PLUS_PLUS_MAX_TX_WEIGHT            178063
 
 // Limiting n layers ensures proof size is capped to a reasonable level when de-serializing a proof
@@ -300,6 +367,20 @@ namespace config
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};
 
+#ifdef WOWNERO_FCMP_TESTNET
+  namespace testnet
+  {
+    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 35346;
+    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 35347;
+    uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 35348;
+    uint16_t const P2P_DEFAULT_PORT = 48880;
+    uint16_t const RPC_DEFAULT_PORT = 48881;
+    uint16_t const ZMQ_RPC_DEFAULT_PORT = 48882;
+    boost::uuids::uuid const NETWORK_ID = {{0x45, 0x73, 0x4e, 0x6a, 0x7a, 0x13, 0x5c, 0x1e, 0x8b, 0x11, 0xe4, 0x0c, 0xee, 0xdd, 0x04, 0x03}};
+    std::string const GENESIS_TX = wownero::testnet::genesis_tx;
+    uint32_t const GENESIS_NONCE = wownero::testnet::genesis_nonce;
+  }
+#else
   namespace testnet
   {
     uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 53;
@@ -314,6 +395,7 @@ namespace config
     std::string const GENESIS_TX = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1";
     uint32_t const GENESIS_NONCE = 10001;
   }
+#endif
 
   namespace stagenet
   {
@@ -388,6 +470,10 @@ namespace cryptonote
       ::config::stagenet::GENESIS_TX,
       ::config::stagenet::GENESIS_NONCE
     };
+#ifdef WOWNERO_FCMP_TESTNET
+    if (nettype != TESTNET)
+      throw std::runtime_error("Wownero FCMP research binaries require the isolated testnet network");
+#endif
     switch (nettype)
     {
       case MAINNET: return mainnet;

@@ -181,7 +181,11 @@ namespace
     boost::filesystem::path dir = tools::get_default_data_dir();
     // remove .bitmonero, replace with .shared-ringdb
     dir = dir.remove_filename();
+#ifdef WOWNERO_FCMP_TESTNET
+    dir /= ".wownero-fcmp-testnet-ringdb";
+#else
     dir /= ".shared-ringdb";
+#endif
     return dir.string();
   }
 

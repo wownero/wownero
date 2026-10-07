@@ -114,7 +114,7 @@ namespace cryptonote
       const bool max_size_check = true;
       if (is_pruned)
       {
-        if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx, max_size_check)))
+        if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx, max_size_check, /*require_eof=*/true)))
           parse_success = cryptonote::get_pruned_transaction_hash(tx, tx_entry.prunable_hash, tx_hash);
       }
       else
@@ -1650,6 +1650,7 @@ namespace cryptonote
           if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
           {
             LOG_ERROR_CCONTEXT("Failure in prepare_handle_incoming_blocks");
+            m_block_queue.flush_spans(span_connection_id, true);
             drop_connections(span_origin);
             return 1;
           }
@@ -3103,6 +3104,7 @@ skip:
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::drop_connection(const boost::uuids::uuid& id, bool add_fail)
   {
+    m_block_queue.flush_spans(id, true);
     m_p2p->for_connection(id, [this, add_fail](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
       // This _could be_ outside of strand, so careful on actions
       drop_connection(context, add_fail, false);
