@@ -2,6 +2,7 @@ name: ci/gh-actions/guix
 
 on:
   push:
+    branches-ignore: [fcmp-testnet]
     paths:
       - 'contrib/depends/**'
       - 'contrib/guix/**'
@@ -10,6 +11,7 @@ on:
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
   pull_request:
+    branches-ignore: [fcmp-testnet]
     paths:
       - 'contrib/depends/**'
       - 'contrib/guix/**'

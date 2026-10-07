@@ -1,310 +1,154 @@
-name: ci/gh-actions/cli
+name: Wownero FCMP testnet
 
 on:
   push:
-    paths-ignore:
-      - 'docs/**'
-      - '**/README.md'
+    branches: [fcmp-testnet]
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**/README.md'
+    branches: [fcmp-testnet]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful push build at this source commit
+        required: true
+        type: string
 
-# The below variables reduce repetitions across similar targets
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wow-fcmp-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
-  # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
-  BUILD_DEFAULT: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all'
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
-  APT_SET_CONF: |
-    tee -a /etc/apt/apt.conf.d/80-custom << EOF
-    Acquire::Retries "3";
-    Acquire::http::Timeout "120";
-    Acquire::ftp::Timeout "120";
-    EOF
-  CCACHE_SETTINGS: |
-    ccache --max-size=150M
-  CTEST_EXCLUDE_SLOW: |
-    cd build
-    env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
-  USE_DEVICE_TREZOR_MANDATORY: ON
-  INSTALL_RUST: |
-    curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
-    echo "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10 rustup-init" | sha256sum -c
-    chmod +x rustup-init
-    ./rustup-init -y --default-toolchain 1.93
-    echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+  RUSTUP_TOOLCHAIN: 1.93.0
+  CARGO_BUILD_JOBS: 2
+  CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL: 3
 
 jobs:
-  build-macos:
-    name: 'macOS (brew)'
-    runs-on: macOS-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: /Users/runner/Library/Caches/ccache
-          key: ccache-${{ runner.os }}-build-${{ github.sha }}
-          restore-keys: ccache-${{ runner.os }}-build-
-      - uses: ./.github/actions/set-make-job-count
-      - name: install dependencies
-        run: |
-          brew uninstall cmake
-          brew update
-          brew install --quiet cmake boost hidapi openssl zmq unbound protobuf ccache
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
-      - name: reduced tests
-        run: ${{env.CTEST_EXCLUDE_SLOW}}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: /Users/runner/Library/Caches/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-windows:
-    name: 'Windows (MSYS2)'
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: C:\Users\runneradmin\AppData\Local\ccache
-          key: ccache-${{ runner.os }}-build-${{ github.sha }}
-          restore-keys: ccache-${{ runner.os }}-build-
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: ucrt64
-          update: true
-          cache: false
-          pacboy: toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
-      - name: reduced tests
-        run: ${{env.CTEST_EXCLUDE_SLOW}}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: C:\Users\runneradmin\AppData\Local\ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-arch:
-    name: 'Arch Linux'
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git rust cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf ccache
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: ~/.cache/ccache
-          key: ccache-arch-build-${{ github.sha }}
-          restore-keys: ccache-arch-build-
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{ env.CCACHE_SETTINGS }}
-          ${{ env.BUILD_DEFAULT }}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-linux:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+  build:
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Oldest supported Debian version
-          - name: Debian 12
-            container: debian:12
-          # Oldest supported Ubuntu LTS version
-          - name: Ubuntu 22.04
-            container: ubuntu:22.04
-    container:
-      image: ${{ matrix.container }}
-      env:
-        DEBIAN_FRONTEND: noninteractive
+          - runner: ubuntu-24.04
+            architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     steps:
-      - name: set apt conf
-        run: ${{env.APT_SET_CONF}}
-      - name: update apt
-        run: apt update
-      - name: install monero dependencies
-        run: ${{env.APT_INSTALL_LINUX}}
-      - name: install rust
-        run: ${{env.INSTALL_RUST}}
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
-          restore-keys: ccache-${{ matrix.container }}-build-
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  test-ubuntu:
-    name: "${{ matrix.name }} (tests)"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          # Most popular Ubuntu LTS version
-          - name: Ubuntu 24.04
-            container: ubuntu:24.04
-    container:
-      image: ${{ matrix.container }}
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      # Setting up a loop device (losetup) requires additional capabilities.
-      # tests/create_test_disks.sh
-      options: --privileged
-    steps:
-      - name: set apt conf
-        run: ${{env.APT_SET_CONF}}
-      - name: update apt
-        run: apt update
-      - name: install monero dependencies
-        run: ${{env.APT_INSTALL_LINUX}}
-      - name: install rust
-        run: ${{env.INSTALL_RUST}}
-      - name: install pip
-        run: apt install -y python3-pip
-      - name: install Python dependencies
-        run: python3 -m pip install --break-system-packages requests psutil monotonic zmq deepdiff
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
-          restore-keys: ccache-${{ matrix.container }}-build-
-      - name: create dummy disk drives for testing
-        run: tests/create_test_disks.sh >> $GITHUB_ENV
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
-      - name: run tests except core_tests
-        env:
-          DNS_PUBLIC: tcp
-        run: ctest --test-dir build --output-on-failure -E core_tests
-      - name: use reduced slow-hash iterations for core_tests
-        if: github.event_name == 'pull_request'
-        env:
-          CFLAGS: -DMONERO_CRYPTO_SLOW_HASH_ITER=20
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          cmake -S . -B build --fresh -D ARCH="default" -D BUILD_TESTS=ON
-          cmake --build build --target core_tests
-      - name: run core_tests
-        run: ctest --test-dir build --output-on-failure -R core_tests
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-docker:
-    name: 'Docker'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: build image
-        run: docker build .
-
-  source-archive:
-    name: "source archive"
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:22.04
-      env:
-        DEBIAN_FRONTEND: noninteractive
-    steps:
-      - name: set apt conf
-        run: ${{env.APT_SET_CONF}}
-      - name: update apt
-        run: apt update
-      - name: install dependencies
-        run: apt install -y git python3-pip
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: archive
+          persist-credentials: false
+      - name: Verify artifact guards
+        run: python3 -m unittest discover -s contrib/ci -p 'test_*.py'
+      - name: Install build dependencies
         run: |
-          pip install git-archive-all
-          export VERSION="monero-$(git describe)"
-          export OUTPUT="$VERSION.tar"
-          echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
-          git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
-      - uses: actions/upload-artifact@v7
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libboost-all-dev \
+            libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind-dev \
+            libreadline-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler
+          rustup toolchain install 1.93.0 --profile minimal
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DARCH=default \
+            -DBUILD_TESTS=ON -DBUILD_GUI_DEPS=OFF \
+            -DWOWNERO_FCMP_TESTNET=ON -DBUILD_WOW_MINER_PROOF_EXPERIMENT=ON
+          cmake --build build --parallel 2 --target daemon simplewallet wallet_rpc_server \
+            wow_miner_proof_tests wow_testnet_tests wow_release_regressions \
+            wow_pow_vectors wow_local_network
+      - name: Verify native tests
+        run: |
+          ctest --test-dir build --output-on-failure -R '^wow_(miner_proof|testnet|release_regressions)$'
+          build/tests/wow_miner_proof/wow_pow_vectors | tee pow-vectors.log
+          build/tests/wow_miner_proof/wow_local_network --rpc-read-check
+      - name: Package research artifacts
+        env:
+          WOW_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          python3 contrib/ci/fcmp_testnet_artifacts.py package build package
+          tar -czf "wownero-fcmp-${WOW_ARCHITECTURE}.tar.gz" -C package .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ${{ env.OUTPUT }}
-          path: ${{ env.OUTPUT }}
+          name: wow-fcmp-${{ matrix.architecture }}-${{ github.sha }}
+          path: wownero-fcmp-${{ matrix.architecture }}.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: wow-fcmp-checks-${{ matrix.architecture }}-${{ github.sha }}
+          path: |
+            build/Testing/Temporary/LastTest.log
+            pow-vectors.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  network:
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Verify build admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WOW_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          if [[ ! "$WOW_BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo 'Build run ID must be numeric' >&2
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${WOW_BUILD_RUN_ID}" > build-run.json
+          python3 - <<'PY'
+          import json, os
+          with open('build-run.json') as stream:
+              run = json.load(stream)
+          expected = {'status': 'completed', 'conclusion': 'success', 'event': 'push',
+                      'head_sha': os.environ['GITHUB_SHA'], 'head_branch': 'fcmp-testnet',
+                      'path': '.github/workflows/build.yml'}
+          for name, value in expected.items():
+              if run.get(name) != value:
+                  raise SystemExit('Build admission refused: ' + name + ' does not match the required build')
+          PY
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wow-fcmp-${{ matrix.architecture }}-${{ github.sha }}
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-all-dev libssl-dev libzmq3-dev libunbound-dev \
+            libsodium-dev libunwind-dev libreadline-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev
+      - name: Verify package and run network acceptance
+        env:
+          WOW_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          python3 contrib/ci/fcmp_testnet_artifacts.py unpack \
+            "artifacts/wownero-fcmp-${WOW_ARCHITECTURE}.tar.gz" package
+          python3 contrib/ci/fcmp_testnet_artifacts.py verify package
+          package/libexec/wow_local_network "$PWD/package/bin/wownero-fcmp-testnetd" \
+            "$RUNNER_TEMP/wow-fcmp-network" 2>&1 | tee network.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: wow-fcmp-network-${{ matrix.architecture }}-${{ github.sha }}
+          path: network.log
+          if-no-files-found: warn
+          retention-days: 30

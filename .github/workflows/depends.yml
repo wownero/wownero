@@ -2,10 +2,12 @@ name: ci/gh-actions/depends
 
 on:
   push:
+    branches-ignore: [fcmp-testnet]
     paths-ignore:
       - 'docs/**'
       - '**/README.md'
   pull_request:
+    branches-ignore: [fcmp-testnet]
     paths-ignore:
       - 'docs/**'
       - '**/README.md'
