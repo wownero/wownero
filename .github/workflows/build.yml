@@ -12,6 +12,10 @@ on:
         required: true
         type: string
 
+defaults:
+  run:
+    shell: bash
+
 permissions:
   contents: read
   actions: read
