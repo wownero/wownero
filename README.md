@@ -141,6 +141,18 @@ Once node is synced to network, run the CLI wallet by entering:
 
 Type `help` in CLI wallet to see standard commands (for advanced options, type `help_advanced`).
 
+### Syncing on slow or lossy connections
+
+On a slow or lossy link, a fresh node can time out while downloading large spans of blocks. Each
+timeout lowers the peer's score, the node drops peers it scores negatively, and it can end up with
+no peers at all. Request smaller spans and add a few reliable nodes to connect to first:
+
+    ./wownerod --block-sync-size 10 \
+      --add-priority-node node.wownero.org:34567 \
+      --add-priority-node wow.smirk.cash:34567
+
+Once the node has caught up, `--block-sync-size` can be removed.
+
 Copyright (c) 2014-2026 The Monero Project.
 
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
