@@ -37,6 +37,7 @@
 #include <limits>
 
 #include "net/error.h"
+#include "net/host.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
@@ -112,7 +113,9 @@ namespace net
         const boost::string_ref port =
             address.substr(host.size() + (host.size() == address.size() ? 0 : 1));
 
-        MONERO_CHECK(host_check(host));
+        std::string normalized_host{host};
+        net::canonicalize_host(normalized_host);
+        MONERO_CHECK(host_check(normalized_host));
 
         std::uint16_t porti = default_port;
         if (!port.empty() && !epee::string_tools::get_xtype_from_string(porti, std::string{port}))
@@ -120,18 +123,22 @@ namespace net
 
         static_assert(v2_length <= v3_length, "bad internal host size");
         static_assert(v3_length + sizeof(tld) == sizeof(tor_address::host_), "bad internal host size");
-        return tor_address{host, porti};
+        return tor_address{normalized_host, porti};
     }
 
     bool tor_address::_load(epee::serialization::portable_storage& src, epee::serialization::section* hparent)
     {
         tor_serialized in{};
-        if (in._load(src, hparent) && in.host.size() < sizeof(host_) && (in.host == unknown_host || !host_check(in.host).has_error()))
+        if (in._load(src, hparent) && in.host.size() < sizeof(host_))
         {
-            std::memcpy(host_, in.host.data(), in.host.size());
-            std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
-            port_ = in.port;
-            return true;
+            net::canonicalize_host(in.host);
+            if (in.host == unknown_host || !host_check(in.host).has_error())
+            {
+                std::memcpy(host_, in.host.data(), in.host.size());
+                std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
+                port_ = in.port;
+                return true;
+            }
         }
         static_assert(sizeof(unknown_host) <= sizeof(host_), "bad buffer size");
         std::memcpy(host_, unknown_host, sizeof(unknown_host)); // include null terminator

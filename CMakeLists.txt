@@ -100,6 +100,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(APPLE)
+  # C++17 aligned new/delete (std::align_val_t) require macOS deployment target >= 10.14. The depends
+  # macOS toolchain targets older (and Apple Silicon aarch64 cross-builds hit this on boost/any.hpp).
+  # Disable aligned allocation so wownero builds under C++17 on all macOS targets.
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-aligned-allocation")
+endif()
+
 # When built as Feather/wowlet's wallet submodule (it sets BUILD_GUI_DEPS=ON before
 # add_subdirectory(monero)), match Feather's anti-AV namespace rename so this library's symbols line
 # up with the app, which Feather compiles with the same -Dcryptonote=MWYSUTPAXIBT define. Gated so it
@@ -616,7 +623,6 @@ find_package(HIDAPI)
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
 add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
-add_definition_if_function_found(strptime HAVE_STRPTIME)
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
@@ -808,9 +814,8 @@ else()
     # mingw doesn't support LTO (multiple definition errors at link time)
     set(USE_LTO_DEFAULT false)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
-    if(NOT BUILD_64)
-      add_definitions(-DWINVER=0x0600 -D_WIN32_WINNT=0x0600)
-    endif()
+    # TryAcquireSRWLock* requires Windows 7 or later.
+    add_definitions(-DWINVER=0x0601 -D_WIN32_WINNT=0x0601)
   endif()
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
@@ -912,6 +917,11 @@ else()
   add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+
+  # A missing WinAPI prototype (e.g. TryAcquireSRWLock*) must fail the build
+  if(MINGW)
+    add_c_flag_if_supported(-Werror=implicit-function-declaration C_SECURITY_FLAGS)
+  endif()
 
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
@@ -1172,7 +1182,7 @@ list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 if (HIDAPI_FOUND OR LibUSB_COMPILE_TEST_PASSED)
   if (APPLE)
     if(DEPENDS)
-      list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework AppKit -framework IOKit")
+      list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework AppKit -framework IOKit -framework Security")
     else()
       find_library(COREFOUNDATION CoreFoundation)
       find_library(APPKIT AppKit)

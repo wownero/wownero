@@ -35,6 +35,7 @@
 #include <system_error>
 
 #include "byte_slice.h"
+#include "rpc/message.h"
 #include "rpc/zmq_pub.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -46,7 +47,7 @@ namespace cryptonote
 namespace
 {
   constexpr const int num_zmq_threads = 1;
-  constexpr const std::int64_t max_message_size = 10 * 1024 * 1024; // 10 MiB
+  constexpr const std::int64_t max_frame_size = net::zmq::max_message_size;
   constexpr const std::chrono::seconds linger_timeout{2}; // wait period for pending out messages
 
   net::zmq::socket init_socket(void* context, int type, epee::span<const std::string> addresses)
@@ -62,7 +63,7 @@ namespace
       return nullptr;
     }
 
-    if (zmq_setsockopt(out.get(), ZMQ_MAXMSGSIZE, std::addressof(max_message_size), sizeof(max_message_size)) != 0)
+    if (zmq_setsockopt(out.get(), ZMQ_MAXMSGSIZE, std::addressof(max_frame_size), sizeof(max_frame_size)) != 0)
     {
       MONERO_LOG_ZMQ_ERROR("Failed to set maximum incoming message size");
       return nullptr;
@@ -92,8 +93,9 @@ namespace
 namespace rpc
 {
 
-ZmqServer::ZmqServer(RpcHandler& h) :
+ZmqServer::ZmqServer(RpcHandler& h, const bool restricted) :
     handler(h),
+    restricted(restricted),
     context(zmq_init(num_zmq_threads)),
     rep_socket(nullptr),
     pub_socket(nullptr),
@@ -154,7 +156,15 @@ void ZmqServer::serve()
         state->relay_to_pub(relay.get(), pub.get());
 
       if (sockets[1].revents)
-        state->sub_request(MONERO_UNWRAP(net::zmq::receive(pub.get(), ZMQ_DONTWAIT)));
+      {
+        expect<std::string> message = net::zmq::receive(pub.get(), ZMQ_DONTWAIT);
+        if (message)
+          state->sub_request(*message);
+        else if (message == net::zmq::make_error_code(ETERM))
+          MONERO_THROW(message.error(), "ZMQ-PUB context terminated");
+        else if (message != net::zmq::make_error_code(EAGAIN))
+          MERROR("Read failure on ZMQ-PUB: " << message.error().message());
+      }
 
       if (!pub || sockets[2].revents)
       {
@@ -162,12 +172,22 @@ void ZmqServer::serve()
         if (!message)
         {
           // EAGAIN can occur when using `zmq_poll`, which doesn't inspect for message validity
-          if (message != net::zmq::make_error_code(EAGAIN))
-            MONERO_THROW(message.error(), "Read failure on ZMQ-RPC");
+          if (message == net::zmq::make_error_code(EMSGSIZE))
+          {
+            MERROR("ZMQ-RPC request exceeds maximum message size");
+            MONERO_UNWRAP(net::zmq::send(REQUEST_TOO_LARGE(), rep.get()));
+          }
+          else if (message == net::zmq::make_error_code(ETERM))
+            MONERO_THROW(message.error(), "ZMQ-RPC context terminated");
+          else if (message != net::zmq::make_error_code(EAGAIN))
+            MERROR("Read failure on ZMQ-RPC: " << message.error().message());
         }
         else // no errors
         {
-          MDEBUG("Received RPC request: \"" << *message << "\"");
+          if (restricted)
+            MDEBUG("Received RPC request");
+          else
+            MDEBUG("Received RPC request: \"" << *message << "\"");
           epee::byte_slice response = handler.handle(std::move(*message));
 
           const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};

@@ -139,10 +139,15 @@ inline bool do_serialize(Archive &ar, bool &v)
   template <bool W, template <bool> class Archive>			\
   bool do_serialize_object(Archive<W> &ar){
 
-/*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
+/*! \macro RESERVE_VECTOR_SERIALIZATION. `min_wire` must be the minimum bytes
+ * each element takes on the wire.
  */
-#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\
-  ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
+#define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec, min_wire)	\
+  do \
+  { \
+    if (!::serialization::detail::prepare_custom_vector_serialization(size, vec, min_wire, ar)) \
+      return false; \
+  } while (0);
 
 /*! \macro END_SERIALIZE
  * \brief self-explanatory
@@ -225,8 +230,19 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!ar.good()) return false;		\
   } while(0);
 
+/*! \macro CONTAINER_FIELD_CAPPED(f, c)
+ *
+ * \brief tags the field with the variable name and then serializes it
+ */
+#define CONTAINER_FIELD_CAPPED(f, c)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = do_serialize(ar, f, c);			\
+    if (!r || !ar.good()) return false;			\
+  } while(0);
 
 namespace serialization {
+
   /*! \namespace detail
    *
    * \brief declaration and default definition for the functions used the API
@@ -238,15 +254,19 @@ namespace serialization {
      *
      * prepares the vector /vec for serialization
      */
-    template <typename T>
-    void prepare_custom_vector_serialization(size_t size, std::vector<T>& vec, const boost::mpl::bool_<true>& /*is_saving*/)
+    template <typename T, template<bool> class A>
+    constexpr bool prepare_custom_vector_serialization(size_t, const std::vector<T>& vec, size_t, const A<true>&) noexcept
     {
+      return true;
     }
 
-    template <typename T>
-    void prepare_custom_vector_serialization(size_t size, std::vector<T>& vec, const boost::mpl::bool_<false>& /*is_saving*/)
+    template <typename T, template<bool> class A>
+    bool prepare_custom_vector_serialization(const size_t size, std::vector<T>& vec, const size_t min_size, const A<false>& ar)
     {
+      if (size && ar.remaining_bytes() / size < min_size)
+        return false;
       vec.resize(size);
+      return true;
     }
 
     /*! \fn do_check_stream_state

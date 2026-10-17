@@ -824,7 +824,8 @@ namespace net_utils
       return false;
 
     // Wait for the write queue to fall below the max. If it doesn't after a
-    // randomized delay, drop the connection.
+    // randomized delay, drop the connection. P2P senders fail fast instead of
+    // parking an io_context worker thread here.
     auto wait_consume = [this] {
       auto random_delay = []{
         using engine = std::mt19937;
@@ -848,6 +849,12 @@ namespace net_utils
       if (m_state.data.write.queue.size() <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
           m_state.data.write.total_bytes <= static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit)
         return true;
+
+      if (m_connection_type == e_connection_type_P2P) {
+        MWARNING("Connection " << m_conn_context.m_connection_id << " tripped write limit, terminating");
+        terminate_async();
+        return false;
+      }
       m_state.data.write.wait_consume = true;
       bool success = m_state.condition.wait_for(
         m_state.lock,
@@ -886,7 +893,11 @@ namespace net_utils
     };
     if (!wait_sender())
       return false;
-    constexpr size_t CHUNK_SIZE = 32 * 1024;
+    /* CHUNK_SIZE indirectly caps outgoing to 128 * 1024 * 1000
+     (ABSTRACT_SERVER_SEND_QUE_MAX_COUNT). The "soft" limit total is currently
+     100 MiB (ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT). These values will
+     need to be re-visited alongside block limit increases. */
+    constexpr size_t CHUNK_SIZE = 128 * 1024;
     if (m_connection_type == e_connection_type_RPC ||
       message.size() <= 2 * CHUNK_SIZE
     ) {
@@ -898,13 +909,19 @@ namespace net_utils
       start_write();
     }
     else {
+      std::size_t soft_limit = 0;
+      const epee::misc_utils::auto_scope_leave_caller scope_exit_handler =
+        epee::misc_utils::create_scope_leave_handler([&soft_limit, this] {
+          m_state.data.write.total_bytes += soft_limit;
+        });
+
       while (!message.empty()) {
         if (!wait_consume())
           return false;
         m_state.data.write.queue.emplace_front(
           message.take_slice(CHUNK_SIZE)
         );
-        m_state.data.write.total_bytes += m_state.data.write.queue.front().size();
+        soft_limit += m_state.data.write.queue.front().size();
         start_write();
       }
     }
@@ -960,14 +977,16 @@ namespace net_utils
 
     ec_t ec;
     #if !defined(_WIN32) || !defined(__i686)
-    connection_basic::socket_.next_layer().set_option(
-      boost::asio::detail::socket_option::integer<IPPROTO_IP, IP_TOS>{
-        connection_basic::get_tos_flag()
-      },
-      ec
-    );
-    if (ec.value())
-      return false;
+    if (real_remote->get_type_id() == ipv4_network_address::get_type_id()) {
+      connection_basic::socket_.next_layer().set_option(
+        boost::asio::detail::socket_option::integer<IPPROTO_IP, IP_TOS>{
+          connection_basic::get_tos_flag()
+        },
+        ec
+      );
+      if (ec.value())
+        return false;
+    }
     #endif
     connection_basic::socket_.next_layer().set_option(
       boost::asio::ip::tcp::no_delay{false},
@@ -1117,9 +1136,9 @@ namespace net_utils
   }
 
   template<typename T>
-  bool connection<T>::cancel()
+  bool connection<T>::cancel(const bool wait_for_shutdown)
   {
-    return close(false);
+    return close(wait_for_shutdown);
   }
 
   template<typename T>
@@ -1138,7 +1157,9 @@ namespace net_utils
   bool connection<T>::close(const bool wait_for_shutdown)
   {
     std::lock_guard<std::mutex> guard(m_state.lock);
-    if (m_state.status != status_t::RUNNING)
+    if (m_state.status == status_t::TERMINATED || m_state.status == status_t::WASTED)
+      return true;
+    if (!wait_for_shutdown && m_state.status != status_t::RUNNING)
       return false;
     terminate_async();
 
@@ -1215,16 +1236,13 @@ namespace net_utils
   template<typename T>
   bool connection<T>::add_ref()
   {
-    try {
-      auto self = connection<T>::shared_from_this();
-      std::lock_guard<std::mutex> guard(m_state.lock);
-      this->self = std::move(self);
-      ++m_state.protocol.reference_counter;
-      return true;
-    }
-    catch (boost::bad_weak_ptr &exception) {
+    auto self = connection<T>::weak_from_this().lock();
+    if (!self)
       return false;
-    }
+    std::lock_guard<std::mutex> guard(m_state.lock);
+    this->self = std::move(self);
+    ++m_state.protocol.reference_counter;
+    return true;
   }
 
   template<typename T>
@@ -1284,7 +1302,7 @@ namespace net_utils
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::~boosted_tcp_server()
   {
-    this->send_stop_signal();
+    send_stop_signal();
     timed_wait_server_stop(10000);
   }
   //---------------------------------------------------------------------------------
@@ -1575,26 +1593,55 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void boosted_tcp_server<t_protocol_handler>::send_stop_signal(std::function<void()> close_all_connections)
+  bool boosted_tcp_server<t_protocol_handler>::mark_stop_signal_sent()
   {
-    m_stop_signal_sent = true;
+    if (m_stop_signal_sent.exchange(true))
+    {
+      MDEBUG("Stop signal already sent");
+      return false;
+    }
     typename connection<t_protocol_handler>::shared_state *state = static_cast<typename connection<t_protocol_handler>::shared_state*>(m_state.get());
     state->stop_signal_sent = true;
-    TRY_ENTRY();
-    connections_mutex.lock();
-    for (auto &c: connections_)
+    return true;
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::close_server_connections()
+  {
+    decltype(connections_) connections;
     {
-      c->cancel();
+      boost::unique_lock<boost::mutex> lock(connections_mutex);
+      connections.swap(connections_);
     }
-    connections_.clear();
-    connections_mutex.unlock();
 
-    // Since we shut down connections in the strand, we want to make sure to complete the shutdown sequence before
-    // stopping the io_context. We let the caller handle closing because the caller is the one keeping track of all
-    // connections (connections_ is only a subset of all connections).
-    close_all_connections();
+    for (auto &c: connections)
+    {
+      c->cancel(true/*wait_for_shutdown*/);
+    }
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::stop_io_context()
+  {
+    {
+      boost::unique_lock<boost::mutex> lock(connections_mutex);
+      if (!connections_.empty())
+      {
+        MERROR("Stopping io_context with " << connections_.size() << " server-owned connections still open");
+      }
+    }
+    MDEBUG("Stopping io_context");
     io_context_.stop();
-    MDEBUG("Done with send_stop_signal");
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::send_stop_signal()
+  {
+    TRY_ENTRY();
+    if (!mark_stop_signal_sent())
+      return;
+    close_server_connections();
+    stop_io_context();
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::send_stop_signal()", void());
   }
   //---------------------------------------------------------------------------------

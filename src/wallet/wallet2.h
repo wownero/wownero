@@ -31,6 +31,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_set>
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -307,6 +308,7 @@ private:
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static bool has_stagenet_option(const boost::program_options::variables_map& vm);
+    static bool has_password_option(const boost::program_options::variables_map& vm);
     static std::string device_name_option(const boost::program_options::variables_map& vm);
     static std::string device_derivation_path_option(const boost::program_options::variables_map &vm);
     static void init_options(boost::program_options::options_description& desc_params);
@@ -756,6 +758,7 @@ private:
     struct signed_tx_set
     {
       std::vector<pending_tx> ptx;
+      // All key images in `m_transfers` from the signing wallet. Does not include key images in `ptx`.
       std::vector<crypto::key_image> key_images;
       serializable_unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
 
@@ -1112,11 +1115,9 @@ private:
       const std::string &proxy = "");
     bool set_proxy(const std::string &address);
 
-    void stop() {
-        m_run.store(false, std::memory_order_relaxed);
-        m_message_store.stop();
-        m_http_client->cancel_read();
-    }
+    void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); m_http_client->cancel_read(); }
+    // teardown-only: a permanent stop that also aborts an in-flight daemon request
+    void shutdown() { m_stopped.store(true, std::memory_order_relaxed); stop(); m_http_client->shutdown(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
@@ -1253,7 +1254,7 @@ private:
     bool load_multisig_tx(cryptonote::blobdata blob, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL);
     bool load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL);
     bool sign_multisig_tx_from_file(const std::string &filename, std::vector<crypto::hash> &txids, std::function<bool(const multisig_tx_set&)> accept_func);
-    bool sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids);
+    bool sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids);
     bool sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
     std::vector<pending_tx> create_unmixable_sweep_transactions();
     void discard_unmixable_outputs();
@@ -1265,6 +1266,8 @@ private:
       uint64_t min_height, uint64_t max_height = (uint64_t)-1, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
+    void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool redacted, const bool expect_imported_key_images, boost::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
+    void sanity_check_pending_tx_set(const std::vector<pending_tx> &ptxs, const bool redacted, const bool expect_imported_key_images, boost::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
 
     bool is_change(const wallet2::transfer_details &td);
 
@@ -1649,9 +1652,9 @@ private:
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
-    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key };
+    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key, sign_with_invalid_key };
     std::string sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index = {0, 0}) const;
-    struct message_signature_result_t { bool valid; unsigned version; bool old; message_signature_type_t type; };
+    struct message_signature_result_t { bool valid = false; unsigned version = 0; bool old = false; message_signature_type_t type = sign_with_invalid_key; };
     message_signature_result_t verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
     /*!
@@ -1694,6 +1697,7 @@ private:
     void update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed = false, bool try_incremental = false);
     void process_pool_state(const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &txs);
     void remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashes, bool remove_if_found);
+    void remove_obsolete_pool_txs(const std::unordered_set<crypto::hash> &tx_hashes, bool remove_if_found);
 
     std::string encrypt(const char *plaintext, size_t len, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string encrypt(const epee::span<char> &span, const crypto::secret_key &skey, bool authenticated = true) const;
@@ -1705,6 +1709,7 @@ private:
 
     std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const;
     bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
+    static bool parse_uri_impl(const std::string &uri, const cryptonote::network_type, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
 
     uint64_t get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day);    // 1<=month<=12, 1<=day<=31
 
@@ -1926,6 +1931,7 @@ private:
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password);
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt);
     void load_wallet_cache(const bool use_fs, const std::string& cache_buf = "");
+    void trim_transfer_maps(size_t num_transfers);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL, bool ignore_callbacks = false);
     bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
@@ -1945,10 +1951,11 @@ private:
     void clear_user_data();
     void pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height);
     void pull_hashes(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<crypto::hash> &hashes);
-    void fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force = false);
+    bool fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force = false, uint64_t max_pulls = 0);
+    bool refresh_running() const { return m_run.load(std::memory_order_relaxed) && !m_stopped.load(std::memory_order_relaxed); }
     void pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, bool &last, bool &error, std::exception_ptr &exception);
     void process_parsed_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
-    bool accept_pool_tx_for_processing(const crypto::hash &txid);
+    bool accept_pool_tx_for_processing(const crypto::hash &txid, const std::unordered_set<crypto::hash> &payments_tx_hashes);
     void process_unconfirmed_transfer(bool incremental, const crypto::hash &txid, wallet2::unconfirmed_transfer_details &tx_details, bool seen_in_pool, std::chrono::system_clock::time_point now, bool refreshed);
     void process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &res, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed);
     void update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed = false);
@@ -1987,6 +1994,7 @@ private:
     rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     void get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce);
+    void clear_multisig_k_and_store(const multisig_tx_set &txs);
     void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
     bool add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
     bool add_rings(const cryptonote::transaction_prefix &tx);
@@ -2072,11 +2080,12 @@ private:
     std::vector<tools::wallet2::address_book_row> m_address_book;
     std::pair<serializable_map<std::string, std::string>, std::vector<std::string>> m_account_tags;
     uint64_t m_upper_transaction_weight_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
-    std::vector<std::vector<tools::wallet2::multisig_info>> m_multisig_rescan_info;
+    std::vector<std::vector<tools::wallet2::multisig_info>> m_multisig_rescan_info; // output, then signer
     std::vector<std::vector<rct::key>> m_multisig_rescan_k;
     serializable_unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     std::atomic<bool> m_run;
+    std::atomic<bool> m_stopped;
 
     boost::recursive_mutex m_daemon_rpc_mutex;
 

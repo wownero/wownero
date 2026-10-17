@@ -157,20 +157,10 @@ namespace cryptonote
       return false;
     }
 
-    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
-    {
-      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
-      tvc.m_verifivation_failed = true; // should already be set, but just in case
-      return false;
-    }
-
-    uint64_t fee;
+    const uint64_t fee = get_tx_fee(tx);
     bool fee_good = false;
     try
     {
-      // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
-      // ver_non_input_consensus(), but let's put it in a try block just in case.
-      fee = get_tx_fee(tx);
       fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
     }
     catch(...) {}
@@ -215,6 +205,14 @@ namespace cryptonote
         tvc.m_no_drop_offense = true;
         return false;
       }
+    }
+
+    // Do more expensive verification after plausible no-drop offenses
+    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+    {
+      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+      tvc.m_verifivation_failed = true; // should already be set, but just in case
+      return false;
     }
 
     // assume failure during verification steps until success is certain
@@ -300,9 +298,10 @@ namespace cryptonote
         {
           using clock = std::chrono::system_clock;
           auto last_relayed_time = std::numeric_limits<decltype(meta.last_relayed_time)>::max();
-          if (tx_relay == relay_method::forward)
+          if (tx_relay == relay_method::forward || tx_relay == relay_method::stem)
           {
-            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{forward_delay_average}());
+            const auto delay = tx_relay == relay_method::forward ? forward_delay_average : dandelionpp_embargo_average;
+            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{delay}());
             set_if_less(m_next_check, time_t(last_relayed_time));
           }
           // else the `set_relayed` function will adjust the time accordingly later
@@ -416,7 +415,7 @@ namespace cryptonote
         break;
       try
       {
-        const crypto::hash &txid = it->second;
+        const crypto::hash txid = it->second;
         txpool_tx_meta_t meta;
         if (!m_blockchain.get_txpool_tx_meta(txid, meta))
         {
@@ -815,6 +814,8 @@ namespace cryptonote
           case relay_method::local:
           case relay_method::fluff:
           case relay_method::block:
+            if (!meta.relayed)
+              break; // if it hasn't been relayed yet, relay it
             if (now - meta.last_relayed_time <= get_relay_delay(meta.last_relayed_time, meta.receive_time))
               return true; // continue to next tx
             break;
@@ -1030,7 +1031,8 @@ namespace cryptonote
     const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
     backlog.reserve(m_blockchain.get_txpool_tx_count(include_sensitive));
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
-      backlog.push_back({meta.weight, meta.fee, meta.receive_time - now});
+      const uint64_t age = now >= meta.receive_time ? now - meta.receive_time : 0;
+      backlog.push_back({meta.weight, meta.fee, age});
       return true;
     }, false, category);
   }
@@ -1241,13 +1243,13 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
+  bool tx_memory_pool::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     tx_infos.reserve(m_blockchain.get_txpool_tx_count());
     key_image_infos.reserve(m_blockchain.get_txpool_tx_count());
-    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
+    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
       cryptonote::rpc::tx_in_pool txi;
       txi.tx_hash = txid;
       if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(*bd, txi.tx) : parse_and_validate_tx_from_blob(*bd, txi.tx)))
@@ -1265,9 +1267,11 @@ namespace cryptonote
       txi.max_used_block_hash = meta.max_used_block_id;
       txi.last_failed_block_height = meta.last_failed_height;
       txi.last_failed_block_hash = meta.last_failed_id;
-      txi.receive_time = meta.receive_time;
+      // In restricted mode we do not include this data:
+      txi.receive_time = include_sensitive ? meta.receive_time : 0;
       txi.relayed = meta.relayed;
-      txi.last_relayed_time = meta.dandelionpp_stem ? 0 : meta.last_relayed_time;
+      // In restricted mode we do not include this data:
+      txi.last_relayed_time = (include_sensitive && !meta.dandelionpp_stem) ? meta.last_relayed_time : 0;
       txi.do_not_relay = meta.do_not_relay;
       txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
@@ -1354,7 +1358,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     for(const auto& in: tx.vin)
     {
-      CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
+      if (in.type() != typeid(txin_to_key))
+        continue;
+      const auto &tokey_in = boost::get<txin_to_key>(in);
       if(have_tx_keyimg_as_spent(tokey_in.k_image, txid))
          return true;
     }
@@ -1553,7 +1559,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version)
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version, bool include_sensitive)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1593,7 +1599,8 @@ namespace cryptonote
       }
       LOG_PRINT_L2("Considering " << sorted_it->second << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
 
-      if (!meta.matches(relay_category::legacy) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
+      const relay_category category = include_sensitive ? relay_category::legacy : relay_category::broadcasted;
+      if (!meta.matches(category) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
       {
         LOG_PRINT_L2("  tx relay method is " << (unsigned)meta.get_relay_method());
         continue;

@@ -303,7 +303,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
   }
 
   const auto& rsig = tx.rct_signatures;
-  if (!cryptonote::is_coinbase(tx) && rsig.p.bulletproofs.empty() && rsig.p.bulletproofs_plus.empty() && rsig.p.rangeSigs.empty() && rsig.p.MGs.empty() && rsig.get_pseudo_outs().empty() && sigs == val.MemberEnd())
+  if (!tx.is_coinbase() && rsig.p.bulletproofs.empty() && rsig.p.bulletproofs_plus.empty() && rsig.p.rangeSigs.empty() && rsig.p.MGs.empty() && rsig.get_pseudo_outs().empty() && sigs == val.MemberEnd())
     tx.pruned = true;
 }
 
@@ -1179,6 +1179,11 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
   const auto prunable = val.FindMember("prunable");
   if (prunable != val.MemberEnd())
   {
+    if (!prunable->value.IsObject())
+    {
+      throw WRONG_TYPE("json object");
+    }
+
     rct::keyV pseudo_outs = std::move(sig.get_pseudo_outs());
 
     GET_FROM_JSON_OBJECT(prunable->value, sig.p.rangeSigs, range_proofs);

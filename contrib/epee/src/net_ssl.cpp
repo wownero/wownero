@@ -197,8 +197,7 @@ bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
     X509_free(cert);
     return false;
   }
-  X509_NAME *name = X509_get_subject_name(cert);
-  X509_set_issuer_name(cert, name);
+  X509_set_issuer_name(cert, X509_get_subject_name(cert));
 
   if (X509_sign(cert, pkey, EVP_sha256()) == 0)
   {
@@ -533,8 +532,16 @@ void ssl_options_t::configure(
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
+      //
+      // The RFC 2818 hostname check must run whenever trust comes from a CA
+      // chain -- system_ca OR user_ca -- otherwise a CA-issued certificate for
+      // any host is accepted for this host (defeats the point of the chain).
+      // It is intentionally skipped for user_certificates (exact pinning) and
+      // none.
+      const bool chain_ca = verification == ssl_verification_t::system_ca ||
+        verification == ssl_verification_t::user_ca;
       const bool verified = preverified &&
-        (verification != ssl_verification_t::system_ca || host.empty() || MONERO_HOSTNAME_VERIFY(host)(preverified, ctx));
+        (!chain_ca || host.empty() || MONERO_HOSTNAME_VERIFY(host)(preverified, ctx));
 
       if (!verified && !has_fingerprint(ctx))
       {
@@ -557,7 +564,8 @@ bool ssl_options_t::handshake(
   boost::asio::ssl::stream_base::handshake_type type,
   boost::asio::const_buffer buffer,
   const std::string& host,
-  std::chrono::milliseconds timeout) const
+  std::chrono::milliseconds timeout,
+  const std::function<bool()>& abort_requested) const
 {
   configure(socket, type, host);
 
@@ -611,6 +619,15 @@ bool ssl_options_t::handshake(
     boost::asio::post(
       strand,
       [&]{
+        std::lock_guard<std::mutex> guard(state.lock);
+        if (state.cancel_handshake) {
+          // cancelled before the socket operation could start: finish here so
+          // the cancelling side cannot leave a handshake running unattended
+          state.wait_handshake = false;
+          state.result = boost::asio::error::operation_aborted;
+          state.condition.notify_all();
+          return;
+        }
         socket.async_handshake(
           type,
           boost::asio::buffer(buffer),
@@ -619,10 +636,28 @@ bool ssl_options_t::handshake(
       }
     );
 
+    bool aborted = false;
     while (!io_context.stopped())
     {
       io_context.poll_one();
       std::lock_guard<std::mutex> guard(state.lock);
+      if (!aborted && abort_requested && abort_requested())
+      {
+        // abort from another thread: close the socket so the handshake cannot
+        // stall again, then keep pumping until both handlers have finished
+        aborted = true;
+        if (state.wait_handshake && !state.cancel_handshake)
+        {
+          state.cancel_handshake = true;
+          ec_t ec;
+          socket.next_layer().close(ec);
+        }
+        if (state.wait_timer && !state.cancel_timer)
+        {
+          state.cancel_timer = true;
+          deadline.cancel();
+        }
+      }
       state.condition.wait_for(
         state.lock,
         std::chrono::milliseconds(30),
