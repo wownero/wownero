@@ -199,7 +199,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", burnt: " << print_money(burnt)
                      << ", raw_output_value: " << print_money(amount)
                      << ", idx: " << subaddr_index);
-            m_listener->moneyReceived(tx_hash, amount - burnt, cryptonote::is_coinbase(tx));
+            m_listener->moneyReceived(tx_hash, amount - burnt, tx.is_coinbase());
             m_listener->updated();
     }
 
@@ -560,9 +560,15 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         // Generate view only wallet
         view_wallet->generate(path, password, address, viewkey);
 
-        // Export/Import outputs
-        auto outputs = m_wallet->export_outputs(true/*all*/);
-        view_wallet->import_outputs(outputs);
+        // Preserve complete output metadata
+        tools::wallet2::transfer_container transfers;
+        m_wallet->get_transfers(transfers);
+        for (auto &td : transfers)
+        {
+            memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
+            td.m_multisig_k.clear();
+        }
+        view_wallet->import_outputs(std::make_tuple(uint64_t{0}, uint64_t{transfers.size()}, transfers));
 
         // Copy scanned blockchain
         auto bc = m_wallet->export_blockchain();
@@ -2581,12 +2587,25 @@ std::string WalletImpl::signMessage(const std::string &message, const std::strin
 
 bool WalletImpl::verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const
 {
+  return verifySignedMessageWithDetails(message, address, signature).valid;
+}
+
+Wallet::MessageSignatureResult WalletImpl::verifySignedMessageWithDetails(const std::string &message, const std::string &address, const std::string &signature) const
+{
   cryptonote::address_parse_info info;
 
   if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address))
-    return false;
+    return {};
 
-  return m_wallet->verify(message, info.address, signature).valid;
+  const tools::wallet2::message_signature_result_t result = m_wallet->verify(message, info.address, signature);
+  MessageSignatureType type = MessageSignatureType_Invalid;
+  switch (result.type)
+  {
+    case tools::wallet2::sign_with_spend_key: type = MessageSignatureType_Spend; break;
+    case tools::wallet2::sign_with_view_key: type = MessageSignatureType_View; break;
+    default: break;
+  }
+  return {result.valid, result.version, result.old, type};
 }
 
 std::string WalletImpl::signMultisigParticipant(const std::string &message) const
@@ -2790,6 +2809,9 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
   tools::wallet2::signed_tx_set exported_txs;
   std::vector<cryptonote::address_parse_info> dsts_info;
 
+  // NOTE: We expect `cold_sign_tx` to validate `pending->m_pending_tx` with `sanity_check_pending_tx`.
+  // It is not possible to pre-validate here because the pending tx may be 'half-formed' at this point (e.g.
+  // trezor makes a tx proposal with no key images and the cold wallet has to supply those).
   m_wallet->cold_sign_tx(pending->m_pending_tx, exported_txs, dsts_info, pending->m_tx_device_aux);
   pending->m_key_images = exported_txs.key_images;
   pending->m_pending_tx = exported_txs.ptx;

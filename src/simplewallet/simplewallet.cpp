@@ -2346,8 +2346,9 @@ bool simple_wallet::public_nodes(const std::vector<std::string> &args)
       const float cph = node.rpc_credits_per_hash / RPC_CREDITS_PER_HASH_SCALE;
       char cphs[9];
       snprintf(cphs, sizeof(cphs), "%.3f", cph);
-      const std::string last_seen = node.last_seen == 0 ? tr("never") : get_human_readable_timespan(std::chrono::seconds(now - node.last_seen));
-      std::string host = node.host + ":" + std::to_string(node.rpc_port);
+      const std::string last_seen = node.last_seen == 0 ? tr("never") : get_human_readable_timespan(std::chrono::seconds(now - std::min(now, node.last_seen)));
+      const std::string host = (node.host.find(':') == std::string::npos ? node.host : "[" + node.host + "]")
+          + ":" + std::to_string(node.rpc_port);
       message_writer() << boost::format("%32s %12s %16s") % host % cphs % last_seen;
       m_claimed_cph[host] = node.rpc_credits_per_hash;
     }
@@ -5879,7 +5880,7 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
       message_writer(console_color_red, false) <<
         tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete and ignored. Use subaddresses instead.");
   }
-  if (unlock_time && !cryptonote::is_coinbase(tx))
+  if (unlock_time && !tx.is_coinbase())
     message_writer() << tr("NOTE: This transaction is locked, see details with: show_transfer ") + epee::string_tools::pod_to_hex(txid);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
@@ -6537,6 +6538,11 @@ bool simple_wallet::process_ring_members(const std::vector<tools::wallet2::pendi
       if (!err.empty())
       {
         fail_msg_writer() << tr("failed to get output: ") << err;
+        return false;
+      }
+      if (res.outs.size() != req.outputs.size())
+      {
+        fail_msg_writer() << tr("daemon returned an invalid number of outputs");
         return false;
       }
       // make sure that returned block heights are less than blockchain height
@@ -7964,13 +7970,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
           if (!payment_id_string.empty())
             payment_id_string += ", ";
 
-          // if none of the addresses are integrated addresses, it's a dummy one
-          bool is_dummy = true;
-          for (const auto &e: cd.dests)
-            if (e.is_integrated)
-              is_dummy = false;
-
-          if (is_dummy)
+          if (payment_id8 == crypto::null_hash8)
           {
             payment_id_string += std::string("dummy encrypted payment ID");
           }
@@ -8001,7 +8001,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     {
       const tx_destination_entry &entry = cd.splitted_dsts[d];
       std::string address, standard_address = get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
-      if (has_encrypted_payment_id && !entry.is_subaddress && standard_address != entry.original)
+      if (has_encrypted_payment_id && !entry.is_subaddress)
       {
         address = get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
         address += std::string(" (" + standard_address + " with encrypted payment id " + epee::string_tools::pod_to_hex(payment_id8) + ")");

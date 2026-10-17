@@ -800,7 +800,7 @@ namespace cryptonote
 
     transaction tx;
     crypto::hash txid;
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
+    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid, true))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
       tvc.m_verifivation_failed = true;
@@ -1195,7 +1195,7 @@ namespace cryptonote
 
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
-      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i]))
+      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i], true))
       {
         LOG_ERROR("Failed to parse relayed transaction");
         return;
@@ -1216,9 +1216,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
   {
-    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
+    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -1268,6 +1268,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
   {
+    const std::unordered_set<crypto::hash> tx_hashes(b.tx_hashes.cbegin(), b.tx_hashes.cend());
+    CHECK_AND_ASSERT_THROW_MES(tx_hashes.size() == b.tx_hashes.size(), "Duplicate transaction hashes in block");
+
     block_complete_entry bce;
     bce.block = cryptonote::block_to_blob(b);
     bce.block_weight = 0; // we can leave it to 0, those txes aren't pruned
@@ -1313,26 +1316,8 @@ namespace cryptonote
     {
       cryptonote_connection_context exclude_context = {};
       NOTIFY_NEW_FLUFFY_BLOCK::request arg{};
-      arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
-      std::vector<crypto::hash> missed_txs;
-      for (const auto &tx_hash : b.tx_hashes)
-      {
-        if (m_blockchain_storage.have_tx(tx_hash))
-          continue;
-        missed_txs.push_back(tx_hash);
-      }
-      if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
-      {
-        LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
-        return true;
-      }
-      CHECK_AND_ASSERT_MES(!missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b)
-        << " b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
-
+      arg.current_blockchain_height = get_block_height(b) + 1;
       block_to_blob(b, arg.b.block);
-      // Relay an empty fluffy block
-      arg.b.txs.clear();
-
       m_pprotocol->relay_block(arg, exclude_context);
     }
     return true;
@@ -1548,9 +1533,9 @@ namespace cryptonote
     return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
+  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const
   {
-    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
+    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const

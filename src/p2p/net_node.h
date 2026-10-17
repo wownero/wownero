@@ -307,7 +307,7 @@ namespace nodetool
 
     BEGIN_INVOKE_MAP2(node_server)
       if (is_filtered_command(context.m_remote_address, command))
-        return LEVIN_ERROR_CONNECTION_HANDLER_NOT_DEFINED;
+        return is_notify ? LEVIN_OK : LEVIN_ERROR_CONNECTION_HANDLER_NOT_DEFINED;
 
       HANDLE_INVOKE_T2(COMMAND_HANDSHAKE, &node_server::handle_handshake)
       HANDLE_INVOKE_T2(COMMAND_TIMED_SYNC, &node_server::handle_timed_sync)
@@ -448,6 +448,7 @@ namespace nodetool
     bool m_use_ipv6;
     bool m_require_ipv4;
     std::atomic<bool> is_closing;
+    std::atomic<bool> m_stop_signal_sent_once{false};
     std::unique_ptr<boost::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;

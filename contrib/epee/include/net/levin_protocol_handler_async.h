@@ -106,7 +106,7 @@ public:
   template<class callback_t>
   int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
-  int send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
+  bool send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
   bool close(boost::uuids::uuid connection_id, const bool wait_for_shutdown);
   bool update_connection_context(const t_connection_context& contxt);
   bool request_callback(boost::uuids::uuid connection_id);
@@ -263,6 +263,8 @@ public:
     }
     virtual void reset_timer()
     {
+      if (m_command == connection_context::handshake_command())
+        return;
       boost::system::error_code ignored_ec;
       if (!m_cancel_timer_called && m_timer.cancel(ignored_ec) > 0)
       {
@@ -562,7 +564,13 @@ public:
                 return false;
             }
             else
-              m_config.m_pcommands_handler->notify(m_current_head.m_command, buff_to_invoke, m_connection_context);
+            {
+              const int notify_result = m_config.m_pcommands_handler->notify(
+                m_current_head.m_command, buff_to_invoke, m_connection_context
+              );
+              if(notify_result < 0)
+                return false;
+            }
           }
           // reuse small buffer
           if (!temp.empty() && temp.capacity() <= 64 * 1024)
@@ -576,32 +584,34 @@ public:
         {
           if(m_cache_in_buffer.size() < sizeof(bucket_head2))
           {
-            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.span(8).data()) != SWAP64LE(LEVIN_SIGNATURE))
+            if(m_cache_in_buffer.size() >= sizeof(uint64_t))
             {
-              MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
-              return false;
+              std::uint64_t levin_sig;
+              memcpy(&levin_sig, m_cache_in_buffer.span(sizeof(std::uint64_t)).data(), sizeof(std::uint64_t));
+              if (SWAP64LE(LEVIN_SIGNATURE) != levin_sig)
+              {
+                MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
+                return false;
+              }
             }
             is_continue = false;
             break;
           }
 
-#if BYTE_ORDER == LITTLE_ENDIAN
-          bucket_head2& phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-#else
-          bucket_head2 phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-          phead.m_signature = SWAP64LE(phead.m_signature);
-          phead.m_cb = SWAP64LE(phead.m_cb);
-          phead.m_command = SWAP32LE(phead.m_command);
-          phead.m_return_code = SWAP32LE(phead.m_return_code);
-          phead.m_flags = SWAP32LE(phead.m_flags);
-          phead.m_protocol_version = SWAP32LE(phead.m_protocol_version);
+          memcpy(&m_current_head, m_cache_in_buffer.span(sizeof(bucket_head2)).data(), sizeof(bucket_head2));
+#if BYTE_ORDER != LITTLE_ENDIAN
+          m_current_head.m_signature = SWAP64LE(m_current_head.m_signature);
+          m_current_head.m_cb = SWAP64LE(m_current_head.m_cb);
+          m_current_head.m_command = SWAP32LE(m_current_head.m_command);
+          m_current_head.m_return_code = SWAP32LE(m_current_head.m_return_code);
+          m_current_head.m_flags = SWAP32LE(m_current_head.m_flags);
+          m_current_head.m_protocol_version = SWAP32LE(m_current_head.m_protocol_version);
 #endif
-          if(LEVIN_SIGNATURE != phead.m_signature)
+          if(LEVIN_SIGNATURE != m_current_head.m_signature)
           {
             LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
             return false;
           }
-          m_current_head = phead;
 
           m_cache_in_buffer.erase(sizeof(bucket_head2));
           m_state = stream_state_body;
@@ -735,8 +745,8 @@ public:
       `message_writer::finalize_notify`. See additional instructions for
       `make_fragmented_notify`.
 
-      \return 1 on success */
-  int send(byte_slice message)
+      \return true on success */
+  bool send(byte_slice message)
   {
     const misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
       boost::bind(&async_protocol_handler::finish_outer_call, this)
@@ -745,9 +755,9 @@ public:
     if (!send_message(std::move(message)))
     {
       LOG_ERROR_CC(m_connection_context, "Failed to send message, dropping it");
-      return -1;
+      return false;
     }
-    return 1;
+    return true;
   }
   //------------------------------------------------------------------------------------------
   boost::uuids::uuid get_connection_id() {return m_connection_context.m_connection_id;}
@@ -927,11 +937,11 @@ void async_protocol_handler_config<t_connection_context>::set_handler(levin_comm
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
-int async_protocol_handler_config<t_connection_context>::send(byte_slice message, const boost::uuids::uuid& connection_id)
+bool async_protocol_handler_config<t_connection_context>::send(byte_slice message, const boost::uuids::uuid& connection_id)
 {
   async_protocol_handler<t_connection_context>* aph;
   int r = find_and_lock_connection(connection_id, aph);
-  return LEVIN_OK == r ? aph->send(std::move(message)) : 0;
+  return LEVIN_OK == r ? aph->send(std::move(message)) : false;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>

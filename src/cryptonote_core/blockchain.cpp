@@ -99,7 +99,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_long_term_block_weights_cache_rolling_median(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
-  m_btc_valid(false),
+  m_btc_include_sensitive(true), m_btc_valid(false),
   m_batch_success(true),
   m_prepare_height(0),
   m_rct_ver_cache()
@@ -155,6 +155,8 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   std::vector<uint64_t> absolute_offsets = relative_output_offsets_to_absolute(tx_in_to_key.key_offsets);
   std::vector<output_data_t> outputs;
 
+  // We check the m_scan_table cache, but note it may not have the entry.
+  // We have to read the db in that case.
   bool found = false;
   auto it = m_scan_table.find(tx_prefix_hash);
   if (it != m_scan_table.end())
@@ -636,7 +638,7 @@ block Blockchain::pop_block_from_blockchain()
       ++pruned;
       continue;
     }
-    if (!is_coinbase(tx))
+    if (!tx.is_coinbase())
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
@@ -1572,7 +1574,7 @@ uint64_t Blockchain::get_current_cumulative_block_weight_median() const
 // in a lot of places.  That flag is not referenced in any of the code
 // nor any of the makefiles, howeve.  Need to look into whether or not it's
 // necessary at all.
-bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t median_weight;
@@ -1590,7 +1592,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     // this would be the case anyway if we'd lock, and the change happened
     // just after the block template was created
     if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce
-      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()) {
+      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()
+      && m_btc_include_sensitive == include_sensitive) {
       MDEBUG("Using cached template");
       const uint64_t now = time(NULL);
       if (m_btc.timestamp < now) // ensures it can't get below the median of the last few blocks
@@ -1705,8 +1708,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   }
   b.timestamp = time(NULL);
 
-  uint64_t median_ts;
-  if (!check_block_timestamp(b, median_ts))
+  uint64_t median_ts{};
+  if (!check_block_timestamp_main_chain(b, &median_ts))
   {
     b.timestamp = median_ts;
   }
@@ -1715,7 +1718,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   size_t txs_weight;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version))
+  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version, include_sensitive))
   {
     return false;
   }
@@ -1834,16 +1837,16 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 #endif
 
     if (!from_block)
-      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, seed_height, seed_hash, pool_cookie);
+      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, seed_height, seed_hash, pool_cookie, include_sensitive);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
   return false;
 }
 //------------------------------------------------------------------
-bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
-  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
+  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash, include_sensitive);
 }
 //------------------------------------------------------------------
 bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -2312,9 +2315,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
 
     //pack block
     e.block = std::move(bl.first);
-    e.block_weight = 0;
-    if (arg.prune && m_db->block_exists(arg.blocks[i]))
-      e.block_weight = m_db->get_block_weight(m_db->get_block_height(arg.blocks[i]));
+    e.block_weight = arg.prune ? m_db->get_block_weight(get_block_height(bl.second)) : 0;
   }
 
   return true;
@@ -3875,6 +3876,7 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
 
 void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const
 {
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   const uint8_t version = get_current_hard_fork_version();
   const uint64_t db_height = m_db->height();
 
@@ -4085,16 +4087,37 @@ uint64_t Blockchain::get_adjusted_time(uint64_t height) const
   return (adjusted_current_block_ts < median_ts ? adjusted_current_block_ts : median_ts);
 }
 //------------------------------------------------------------------
-//TODO: revisit, has changed a bit on upstream
-bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t* median_ts_out) const
 {
+  if (median_ts_out)
+    *median_ts_out = 0;
+
   LOG_PRINT_L3("Blockchain::" << __func__);
-  median_ts = epee::misc_utils::median(timestamps);
+
+  // Wownero: the future limit and window depend on the hard fork version.
+  const uint8_t version = get_current_hard_fork_version();
+  const uint64_t cryptonote_block_future_time_limit = version >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
+  const size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+
+  if(b.timestamp > (uint64_t)time(NULL) + cryptonote_block_future_time_limit)
+  {
+    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", "
+      << b.timestamp << ", bigger than local time + " << cryptonote_block_future_time_limit << " seconds");
+    return false;
+  }
+
+  // if not enough blocks, no proper median yet, return true
+  if(timestamps.size() < blockchain_timestamp_check_window)
+  {
+    return true;
+  }
+
+  const uint64_t median_ts = epee::misc_utils::median(timestamps);
+  if (median_ts_out)
+    *median_ts_out = median_ts;
 
   if(b.timestamp < median_ts)
   {
-    uint8_t version = get_current_hard_fork_version();
-    size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
     MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", less than median of last " << blockchain_timestamp_check_window << " blocks, " << median_ts);
     return false;
   }
@@ -4109,37 +4132,26 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 //   true if the block's timestamp is not less than the timestamp of the
 //       median of the selected blocks
 //   false otherwise
-bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp_main_chain(const block& b, uint64_t* median_ts_out) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  uint8_t version = get_current_hard_fork_version();
-  uint64_t cryptonote_block_future_time_limit = version >= 8 ? CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2 : CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT;
-  size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
-  if(b.timestamp > (uint64_t)time(NULL) + cryptonote_block_future_time_limit)
-  {
-    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", bigger than local time + 10 minutes");
-    return false;
-  }
+  const uint8_t version = get_current_hard_fork_version();
+  const size_t blockchain_timestamp_check_window = version >= 10 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V2 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
 
   const auto h = m_db->height();
 
-  // if not enough blocks, no proper median yet, return true
-  if(h < blockchain_timestamp_check_window)
-  {
-    return true;
-  }
-
   std::vector<uint64_t> timestamps;
 
-  // need most recent 60 blocks, get index of first of those
-  size_t offset = h - blockchain_timestamp_check_window;
+  // need most recent window blocks, get index of first of those
+  size_t offset = (h >= blockchain_timestamp_check_window) ? (h - blockchain_timestamp_check_window) : 0;
+  assert(offset <= h);
   timestamps.reserve(h - offset);
   for(;offset < h; ++offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
   }
 
-  return check_block_timestamp(timestamps, b, median_ts);
+  return check_block_timestamp(timestamps, b, median_ts_out);
 }
 //------------------------------------------------------------------
 bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
@@ -4216,7 +4228,7 @@ leave:
 
   // make sure block timestamp is not less than the median timestamp
   // of a set number of the most recent blocks.
-  if(!check_block_timestamp(bl))
+  if(!check_block_timestamp_main_chain(bl))
   {
     MERROR_VER("Block with id: " << id << std::endl << "has invalid timestamp: " << bl.timestamp);
     bvc.m_verifivation_failed = true;
@@ -4797,10 +4809,13 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   db_rtxn_guard rtxn_guard(m_db);
-  if(have_block(id))
+  int where = 0;
+  if(have_block(id, &where))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
+    if (where == HAVE_BLOCK_INVALID)
+      bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -5333,6 +5348,14 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::map<uint64_t, std::vector<output_data_t>> tx_map;
   std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
+  // We want to target max memory usage for offsets here to 100mb. We'll have output_data_t
+  // per offset in memory for m_scan_table and tx_map (hence the 2*sizeof(output_data_t)).
+  // If m_scan_table doesn't have an offset entry while handling an incoming block, that's
+  // ok. It should cache miss and just do the db read(s) when handling the block.
+  // Note: we might go over the target max offsets a little, but that's ok.
+  // TODO: return early once we're past the FCMP++ fork.
+  constexpr std::size_t TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE = 100000000/*100MB*/ / (2*sizeof(output_data_t));
+
 #define SCAN_TABLE_QUIT(m) \
         do { \
             MERROR_VER(m) ;\
@@ -5342,10 +5365,13 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   // generate sorted tables for all amounts and absolute offsets
   size_t tx_index = 0, block_index = 0;
+  size_t n_total_offsets = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
       return false;
+    if (n_total_offsets >= TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE)
+      break;
 
     for (const auto &tx_blob : entry.txs)
     {
@@ -5355,7 +5381,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       crypto::hash &tx_prefix_hash = txes[tx_index].second;
       ++tx_index;
 
-      if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx))
+      if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx, true))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
       cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 
@@ -5367,7 +5393,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       its = m_scan_table.find(tx_prefix_hash);
       assert(its != m_scan_table.end());
 
-      // get all amounts from tx.vin(s)
+      // initialize amount buckets for tx.vin(s)
       for (const auto &txin : tx.vin)
       {
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
@@ -5377,22 +5403,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         if (it != its->second.end())
           SCAN_TABLE_QUIT("Duplicate key_image found from incoming blocks.");
 
-        amounts.push_back(in_to_key.amount);
-      }
-
-      // sort and remove duplicate amounts from amounts list
-      std::sort(amounts.begin(), amounts.end());
-      auto last = std::unique(amounts.begin(), amounts.end());
-      amounts.erase(last, amounts.end());
-
-      // add amount to the offset_map and tx_map
-      for (const uint64_t &amount : amounts)
-      {
-        if (offset_map.find(amount) == offset_map.end())
-          offset_map.emplace(amount, std::vector<uint64_t>());
-
-        if (tx_map.find(amount) == tx_map.end())
-          tx_map.emplace(amount, std::vector<output_data_t>());
+        offset_map.emplace(in_to_key.amount, std::vector<uint64_t>());
+        tx_map.emplace(in_to_key.amount, std::vector<output_data_t>());
       }
 
       // add new absolute_offsets to offset_map
@@ -5402,12 +5414,24 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         // no need to check for duplicate here.
         auto absolute_offsets = relative_output_offsets_to_absolute(in_to_key.key_offsets);
         for (const auto & offset : absolute_offsets)
+        {
           offset_map[in_to_key.amount].push_back(offset);
+          ++n_total_offsets;
+        }
+      }
 
+      if (n_total_offsets >= TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE)
+      {
+        MWARNING("Preparing large batch to sync, we exceeded our cache limit");
+        break;
       }
     }
     ++block_index;
   }
+
+  amounts.reserve(offset_map.size());
+  for (const auto &offsets : offset_map)
+    amounts.push_back(offsets.first);
 
   // sort and remove duplicate absolute_offsets in offset_map
   for (auto &offsets : offset_map)
@@ -5445,10 +5469,13 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   // now generate a table for each tx_prefix and k_image hashes
   tx_index = 0;
+  bool reached_end_of_cache = false;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
       return false;
+    if (reached_end_of_cache)
+      break;
 
     for (size_t i = 0; i < entry.txs.size(); ++i)
     {
@@ -5460,32 +5487,34 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its == m_scan_table.end())
-        SCAN_TABLE_QUIT("Tx not found on scan table from incoming blocks.");
+      {
+        reached_end_of_cache = true;
+        break;
+      }
 
       for (const auto &txin : tx.vin)
       {
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
         auto needed_offsets = relative_output_offsets_to_absolute(in_to_key.key_offsets);
 
+        const auto offset_it = offset_map.find(in_to_key.amount);
+        const auto tx_it = tx_map.find(in_to_key.amount);
+        if (offset_it == offset_map.end() || tx_it == tx_map.end())
+          SCAN_TABLE_QUIT("Amount not found on scan table from incoming blocks.");
+
+        const std::vector<uint64_t> &offsets_found = offset_it->second;
+        const std::vector<output_data_t> &outputs_found = tx_it->second;
+
         std::vector<output_data_t> outputs;
         for (const uint64_t & offset_needed : needed_offsets)
         {
-          size_t pos = 0;
-          bool found = false;
+          // offsets_found is sorted above before output_scan_worker populates outputs_found.
+          const auto found_it = std::lower_bound(offsets_found.begin(), offsets_found.end(), offset_needed);
+          const size_t pos = found_it - offsets_found.begin();
+          const bool found = found_it != offsets_found.end() && *found_it == offset_needed;
 
-          for (const uint64_t &offset_found : offset_map[in_to_key.amount])
-          {
-            if (offset_needed == offset_found)
-            {
-              found = true;
-              break;
-            }
-
-            ++pos;
-          }
-
-          if (found && pos < tx_map[in_to_key.amount].size())
-            outputs.push_back(tx_map[in_to_key.amount].at(pos));
+          if (found && pos < outputs_found.size())
+            outputs.push_back(outputs_found[pos]);
           else
             break;
         }
@@ -5863,7 +5892,7 @@ void Blockchain::invalidate_block_template_cache()
   m_btc_valid = false;
 }
 
-void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie)
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie, bool include_sensitive)
 {
   MDEBUG("Setting block template cache");
   m_btc = b;
@@ -5875,6 +5904,7 @@ void Blockchain::cache_block_template(const block &b, const cryptonote::account_
   m_btc_seed_hash = seed_hash;
   m_btc_seed_height = seed_height;
   m_btc_pool_cookie = pool_cookie;
+  m_btc_include_sensitive = include_sensitive;
   m_btc_valid = true;
 }
 

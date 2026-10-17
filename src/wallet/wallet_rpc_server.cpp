@@ -34,6 +34,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
 #include <chrono>
+#include <thread>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -142,7 +143,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
   const command_line::arg_descriptor<bool> arg_no_initial_sync = {"no-initial-sync", "Skips the initial sync before listening for connections", false};
-  const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_public_ip = {"rpc-max-connections-per-public-ip", "Max RPC connections per public IP permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP};
+  const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_public_ip = {"rpc-max-connections-per-public-ip", "Max RPC connections permitted per public IPv4 address or shared across a public IPv6 /64 subnet", DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP};
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_private_ip = {"rpc-max-connections-per-private-ip", "Max RPC connections per private and localhost IP permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP};
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections = {"rpc-max-connections", "Max RPC connections permitted", DEFAULT_RPC_MAX_CONNECTIONS};
   const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit = {"rpc-response-soft-limit", "Max response bytes that can be queued, enforced at next response attempt", DEFAULT_RPC_SOFT_LIMIT_SIZE};
@@ -193,19 +194,24 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_restricted(false), m_vm(NULL)
+  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_teardown(false), m_stop_refresh_active(0), m_wallet_swap_active(false), m_restricted(false), m_vm(NULL)
   {
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::~wallet_rpc_server()
   {
-    if (m_wallet)
-      delete m_wallet;
+    set_wallet(NULL);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::set_wallet(wallet2 *cr)
   {
+    // pause stop_refresh() and wait out in-flight calls so they cannot stop a deleted wallet
+    m_wallet_swap_active = true;
+    while (m_stop_refresh_active > 0)
+      std::this_thread::yield();
+    delete m_wallet;
     m_wallet = cr;
+    m_wallet_swap_active = false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::run()
@@ -292,8 +298,21 @@ namespace tools
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  void wallet_rpc_server::stop_refresh()
+  {
+    // may run on a signal/service thread: skip while the wallet is replaced or torn down
+    ++m_stop_refresh_active;
+    if (!m_teardown && !m_wallet_swap_active && m_wallet)
+      m_wallet->shutdown();
+    --m_stop_refresh_active;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::stop()
   {
+    // disarm stop_refresh() and wait out in-flight calls before deleting the wallet under them
+    m_teardown = true;
+    while (m_stop_refresh_active > 0)
+      std::this_thread::yield();
     if (m_wallet)
     {
       m_wallet->store();
@@ -1459,6 +1478,7 @@ namespace tools
     }
 
     std::vector <wallet2::tx_construction_data> tx_constructions;
+    std::vector<uint64_t> tx_weights;
     if (!req.unsigned_txset.empty()) {
       try {
         tools::wallet2::unsigned_tx_set exported_txs;
@@ -1474,6 +1494,8 @@ namespace tools
           return false;
         }
         tx_constructions = exported_txs.txes;
+        // An unsigned txset does not contain a transaction with an exact weight yet.
+        tx_weights.resize(tx_constructions.size());
       }
       catch (const std::exception &e) {
         er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
@@ -1497,6 +1519,7 @@ namespace tools
 
         for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n) {
           tx_constructions.push_back(exported_txs.m_ptx[n].construction_data);
+          tx_weights.push_back(cryptonote::get_transaction_weight(exported_txs.m_ptx[n].tx));
         }
       }
       catch (const std::exception &e) {
@@ -1519,8 +1542,9 @@ namespace tools
       for (size_t n = 0; n < tx_constructions.size(); ++n)
       {
         const tools::wallet2::tx_construction_data &cd = tx_constructions[n];
-        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, {}, "", 0, "", 0, 0, ""});
+        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, {}, "", 0, "", 0, 0, 0, ""});
         wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
+        desc.weight = tx_weights[n];
         // Clear the recipients collection ready for this loop iteration
         tx_dests.clear();
 
@@ -1551,12 +1575,13 @@ namespace tools
         for (size_t s = 0; s < cd.sources.size(); ++s)
         {
           const cryptonote::tx_source_entry &src_in = cd.sources[s];
+          const cryptonote::tx_source_entry::output_entry &real_ring_member = src_in.outputs.at(src_in.real_output);
           desc.sources.emplace_back();
           wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::source &src_out = desc.sources.back();
           src_out.amount = src_in.amount;
-          src_out.global_index = src_in.outputs.at(src_in.real_output_in_tx_index).first;
+          src_out.global_index = real_ring_member.first;
           src_out.rct = src_in.rct;
-          src_out.pubkey = epee::string_tools::pod_to_hex(src_in.outputs.at(src_in.real_output_in_tx_index).second);
+          src_out.pubkey = epee::string_tools::pod_to_hex(real_ring_member.second);
           desc.amount_in += src_in.amount;
           size_t ring_size = src_in.outputs.size();
           if (ring_size < desc.ring_size)
@@ -1566,7 +1591,7 @@ namespace tools
         {
           const cryptonote::tx_destination_entry &entry = cd.splitted_dsts[d];
           std::string address = cryptonote::get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
-          if (has_encrypted_payment_id && !entry.is_subaddress && address != entry.original)
+          if (has_encrypted_payment_id && !entry.is_subaddress)
             address = cryptonote::get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
           auto i = tx_dests.find(entry.addr);
           if (i == tx_dests.end())
@@ -3335,14 +3360,14 @@ namespace tools
       }
       entry.m_address = info.address;
       entry.m_is_subaddress = info.is_subaddress;
-      if (info.has_payment_id)
-        entry.m_payment_id = info.payment_id;
+      entry.m_has_payment_id = info.has_payment_id;
+      entry.m_payment_id = info.has_payment_id ? info.payment_id : crypto::null_hash8;
     }
 
     if (req.set_description)
       entry.m_description = req.description;
 
-    if (!m_wallet->set_address_book_row(req.index, entry.m_address, req.set_address && entry.m_has_payment_id ? &entry.m_payment_id : NULL, entry.m_description, entry.m_is_subaddress))
+    if (!m_wallet->set_address_book_row(req.index, entry.m_address, entry.m_has_payment_id ? &entry.m_payment_id : NULL, entry.m_description, entry.m_is_subaddress))
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Failed to edit address book entry";
@@ -3405,6 +3430,9 @@ namespace tools
     {
       const auto new_period = req.enable ? req.period ? req.period : DEFAULT_AUTO_REFRESH_PERIOD : 0;
       m_auto_refresh_period.store(new_period, std::memory_order_relaxed);
+      // refresh on the next idle tick rather than after a full period
+      if (new_period)
+        m_last_auto_refresh_time = std::chrono::steady_clock::now() - std::chrono::seconds(new_period);
       MINFO("Auto refresh now " << (new_period ? std::to_string(new_period) + " seconds" : std::string("disabled")));
       return true;
     }
@@ -3452,6 +3480,12 @@ namespace tools
   bool wallet_rpc_server::on_rescan_spent(const wallet_rpc::COMMAND_RPC_RESCAN_SPENT::request& req, wallet_rpc::COMMAND_RPC_RESCAN_SPENT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
+    if (!m_wallet->is_trusted_daemon())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "This command requires a trusted daemon.";
+      return false;
+    }
     try
     {
       m_wallet->rescan_spent();
@@ -3627,9 +3661,8 @@ namespace tools
         handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
         return false;
       }
-      delete m_wallet;
     }
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3704,9 +3737,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3732,8 +3763,7 @@ namespace tools
         return false;
       }
     }
-    delete m_wallet;
-    m_wallet = NULL;
+    set_wallet(NULL);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -4024,9 +4054,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     return true;
   }
@@ -4240,9 +4268,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     res.info = "Wallet has been restored successfully.";
     return true;
@@ -4440,12 +4466,6 @@ namespace tools
     }
 
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_finalize_multisig(const wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
-  {
-    CHECK_MULTISIG_ENABLED();
-    return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_exchange_multisig_keys(const wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::request& req, wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
@@ -4899,6 +4919,12 @@ public:
         return false;
       }
 
+      if(!wallet_dir.empty() && tools::wallet2::has_password_option(vm))
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("--password is not allowed in combination with --wallet-dir"));
+        return false;
+      }
+
       if (!wallet_dir.empty())
       {
         wal = NULL;
@@ -4949,7 +4975,7 @@ public:
       tools::signal_handler::install([&wal, &quit](int) {
         assert(wal);
         quit = true;
-        wal->stop();
+        wal->shutdown();
       });
 
       try
@@ -4961,6 +4987,8 @@ public:
       {
         LOG_ERROR(tools::wallet_rpc_server::tr("Initial refresh failed: ") << e.what());
       }
+      // swap handlers before the quit check so a late signal cannot permanently stop the wallet the server serves
+      tools::signal_handler::install([&quit](int) { quit = true; });
       // if we ^C during potentially length load/refresh, there's no server loop yet
       if (quit)
       {
@@ -4981,6 +5009,7 @@ public:
     bool r = wrpc->init(&vm);
     CHECK_AND_ASSERT_MES(r, false, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
     tools::signal_handler::install([this](int) {
+      wrpc->stop_refresh(); // a running refresh blocks server exit
       wrpc->send_stop_signal();
     });
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
@@ -5010,6 +5039,7 @@ public:
 
   void stop()
   {
+    wrpc->stop_refresh(); // a running refresh blocks server exit
     wrpc->send_stop_signal();
   }
 };

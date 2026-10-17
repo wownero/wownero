@@ -48,41 +48,30 @@ using namespace epee;
 using namespace crypto;
 
 
-namespace
-{
-//---------------------------------------------------------------
-/**
- * @brief check if can re-derive change address from device / keys
- * @param change_addr address to attempt to re-derive
- * @param subaddresses subaddress map
- * @param keys account keys of sender
- * @return subaddress index of `change_addr` if in the subaddress map and re-derives from device, otherwise nullopt
- */
-boost::optional<cryptonote::subaddress_index> sanity_check_change_address(
-  const cryptonote::account_public_address& change_addr,
-  const std::unordered_map<crypto::public_key, cryptonote::subaddress_index>& subaddresses,
-  const cryptonote::account_keys &keys
-)
-{
-  // guess/find subaddress index of `change_addr`, works for main addresses if `subaddresses` is empty
-  cryptonote::subaddress_index subaddr_index{}; // (0, 0) by default
-  const auto subaddr_it = subaddresses.find(change_addr.m_spend_public_key);
-  if (subaddr_it != subaddresses.cend())
-    subaddr_index = subaddr_it->second;
-
-  // if device does not return same address given index, then fail
-  hw::device &hwdev = keys.get_device();
-  const auto recomputed_addr = hwdev.get_subaddress(keys, subaddr_index);
-  if (change_addr != recomputed_addr)
-    return boost::none;
-
-  return boost::optional<cryptonote::subaddress_index>(subaddr_index);
-}
-//---------------------------------------------------------------
-} //anonymous namespace
 
 namespace cryptonote
 {
+  //---------------------------------------------------------------
+  boost::optional<cryptonote::subaddress_index> sanity_check_change_address(
+    const cryptonote::account_public_address& change_addr,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index>& subaddresses,
+    const cryptonote::account_keys &keys
+  )
+  {
+    // guess/find subaddress index of `change_addr`, works for main addresses if `subaddresses` is empty
+    cryptonote::subaddress_index subaddr_index{}; // (0, 0) by default
+    const auto subaddr_it = subaddresses.find(change_addr.m_spend_public_key);
+    if (subaddr_it != subaddresses.cend())
+      subaddr_index = subaddr_it->second;
+
+    // if device does not return same address given index, then fail
+    hw::device &hwdev = keys.get_device();
+    const auto recomputed_addr = hwdev.get_subaddress(keys, subaddr_index);
+    if (change_addr != recomputed_addr)
+      return boost::none;
+
+    return boost::optional<cryptonote::subaddress_index>(subaddr_index);
+  }
   //---------------------------------------------------------------
   void classify_addresses(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr, size_t &num_stdaddresses, size_t &num_subaddresses, account_public_address &single_dest_subaddress)
   {
@@ -260,6 +249,9 @@ namespace cryptonote
       LOG_ERROR("Empty sources");
       return false;
     }
+
+    for (const tx_destination_entry& destination : destinations)
+      CHECK_AND_ASSERT_MES(check_address(destination.addr), false, "Invalid destination address keys");
 
     boost::optional<cryptonote::subaddress_index> recognized_change_index;
     if (change_addr)
@@ -466,11 +458,12 @@ namespace cryptonote
       crypto::public_key out_eph_public_key;
       crypto::view_tag view_tag;
 
-      hwdev.generate_output_ephemeral_keys(tx.version,sender_account_keys, txkey_pub, tx_key,
+      const bool r = hwdev.generate_output_ephemeral_keys(tx.version,sender_account_keys, txkey_pub, tx_key,
                                            dst_entr, change_addr, output_index,
                                            need_additional_txkeys, additional_tx_keys,
                                            additional_tx_public_keys, amount_keys, out_eph_public_key,
                                            use_view_tags, view_tag);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to generate output ephemeral keys");
 
       tx_out out;
       cryptonote::set_tx_out(dst_entr.amount, out_eph_public_key, use_view_tags, view_tag, out);

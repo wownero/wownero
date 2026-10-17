@@ -81,6 +81,22 @@ static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::a
 
 namespace nodetool
 {
+  inline bool is_same_p2p_connection_limit_host(const epee::net_utils::network_address& left, const epee::net_utils::network_address& right)
+  {
+    if (left.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() &&
+        right.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+    {
+      const boost::asio::ip::address_v6 left_ip = left.as<const epee::net_utils::ipv6_network_address>().ip();
+      const boost::asio::ip::address_v6 right_ip = right.as<const epee::net_utils::ipv6_network_address>().ip();
+      if (epee::net_utils::should_group_ipv6_by_prefix(left_ip) &&
+          epee::net_utils::should_group_ipv6_by_prefix(right_ip))
+        return epee::net_utils::get_ipv6_subnet_address(left_ip, 64) ==
+          epee::net_utils::get_ipv6_subnet_address(right_ip, 64);
+    }
+
+    return left.is_same_host(right);
+  }
+  //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   node_server<t_payload_net_handler>::~node_server()
   {
@@ -206,8 +222,8 @@ namespace nodetool
       {
         if (now >= it->second)
         {
-          it = m_blocked_subnets.erase(it);
           MCLOG_CYAN(el::Level::Info, "global", "Subnet " << it->first.host_str() << " unblocked.");
+          it = m_blocked_subnets.erase(it);
           continue;
         }
         if (it->first.matches(ipv4_address))
@@ -1088,28 +1104,44 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    if (m_stop_signal_sent_once.exchange(true))
+    {
+      MDEBUG("[node] Stop signal already sent");
+      return true;
+    }
     MDEBUG("[node] stopping server payload handler");
     m_payload_handler.stop();
-    MDEBUG("[node] sending stop signal");
+
+    MDEBUG("[node] marking net servers as stopping");
     for (auto& zone : m_network_zones)
     {
-      const auto close_all_connections = [&, this]()
-      {
-        std::list<boost::uuids::uuid> connection_ids;
-        zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
-          connection_ids.push_back(cntxt.m_connection_id);
-          return true;
-        });
-        for (const auto &connection_id: connection_ids)
-        {
-          MDEBUG("Closing connection " << connection_id);
-          // We need to wait for every connection's shutdown sequence to complete before stopping the io_context.
-          zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
-          MDEBUG("Closed connection " << connection_id);
-        }
-      };
+      zone.second.m_net_server.mark_stop_signal_sent();
+    }
 
-      zone.second.m_net_server.send_stop_signal(close_all_connections);
+    MDEBUG("[node] closing connections");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.close_server_connections();
+
+      std::list<boost::uuids::uuid> connection_ids;
+      zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+      {
+        connection_ids.push_back(cntxt.m_connection_id);
+        return true;
+      });
+      for (const auto &connection_id: connection_ids)
+      {
+        MDEBUG("Closing connection " << connection_id);
+        // All zone connections must finish shutting down before any shared io_context is stopped.
+        zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
+        MDEBUG("Closed connection " << connection_id);
+      }
+    }
+
+    MDEBUG("[node] stopping net server io_contexts");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.stop_io_context();
     }
     MDEBUG("[node] Stop signal sent");
     return true;
@@ -2365,8 +2397,8 @@ namespace nodetool
       return false;
 
     network_zone& zone = m_network_zones.at(context.m_remote_address.get_zone());
-    int res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
-    return res > 0;
+    bool res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
+    return res;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2575,9 +2607,9 @@ namespace nodetool
       return 1;
     }
 
-    if(context.peer_id)
+    if(context.handshake_complete())
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?)");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but connection already completed a handshake (double COMMAND_HANDSHAKE?)");
       drop_connection(context);
       return 1;
     }
@@ -2919,7 +2951,7 @@ namespace nodetool
 
     m_network_zones.at(epee::net_utils::zone::public_).m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
     {
-      if (cntxt.m_is_income && cntxt.m_remote_address.is_same_host(address)) {
+      if (cntxt.m_is_income && is_same_p2p_connection_limit_host(cntxt.m_remote_address, address)) {
         count++;
 
         // the only call location happens BEFORE foreach_connection list is updated
