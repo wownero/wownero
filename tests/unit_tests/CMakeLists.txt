@@ -154,3 +154,21 @@ add_test(
 monero_add_minimal_executable(test_notifier test_notifier.cpp)
 target_link_libraries(test_notifier ${EXTRA_LIBRARIES})
 set_property(TARGET test_notifier PROPERTY FOLDER "tests")
+
+# Isolate fake libunbound symbols from the network-dependent unit-test binary.
+monero_add_minimal_executable(dns_resolver_configuration_tests
+  dns_resolver_configuration.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/dns_utils.cpp)
+target_compile_definitions(dns_resolver_configuration_tests PRIVATE
+  ub_ctx_create=dns_test_ctx_create
+  ub_ctx_delete=dns_test_ctx_delete
+  ub_ctx_resolvconf=dns_test_ctx_resolvconf
+  ub_ctx_hosts=dns_test_ctx_hosts
+  ub_ctx_set_fwd=dns_test_ctx_set_fwd
+  ub_ctx_set_option=dns_test_ctx_set_option
+  ub_ctx_add_ta=dns_test_ctx_add_ta
+  ub_resolve=dns_test_resolve
+  ub_resolve_free=dns_test_resolve_free)
+target_include_directories(dns_resolver_configuration_tests PRIVATE ${UNBOUND_INCLUDE_DIR})
+target_link_libraries(dns_resolver_configuration_tests PRIVATE common ${GTEST_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${EXTRA_LIBRARIES})
+add_test(NAME dns_resolver_configuration_tests COMMAND dns_resolver_configuration_tests)
