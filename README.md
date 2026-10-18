@@ -156,3 +156,10 @@ Once the node has caught up, `--block-sync-size` can be removed.
 Copyright (c) 2014-2026 The Monero Project.
 
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
+
+### DNS seed discovery
+
+Mainnet discovers peers from TXT records at `seeds.wownero.org`. Records contain
+literal IPv4 endpoints (`IP:port`), either individually or separated by semicolons.
+Invalid and local endpoints are ignored. The built-in seed list remains the
+fallback when DNS is unavailable or returns too few usable endpoints.
