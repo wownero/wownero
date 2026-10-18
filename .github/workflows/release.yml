@@ -4,16 +4,12 @@ name: release
 # a GitHub Release. Asset names match the established convention from past releases:
 #   wownero-<host-triplet>-<version>.{tar.bz2,zip}
 #
-# Runs on the GitHub mirror's hosted runners. Triggers:
-#   * pushing a version tag (v*)       -> builds + publishes a Release for that tag
-#   * manual dispatch (workflow_dispatch):
+# Legacy manual builder. Signed releases use the reviewed company build lane.
+# Manual dispatch (workflow_dispatch):
 #       - ref:     tag/branch/commit to build (e.g. v0.11.4.0); blank = default branch
 #       - publish: if true, attach the built assets to the Release for `ref`
 #                  (use this to add binaries to an already-tagged release)
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       ref:
