@@ -59,6 +59,7 @@
 #include "storages/levin_abstract_invoke2.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "net/parse.h"
+#include "p2p/dns_seed.h"
 
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -801,7 +802,7 @@ namespace nodetool
         MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
         // TODO: care about dnssec avail/valid
         bool avail, valid;
-        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_txt_record(addr_str, avail, valid);
         MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
         const auto frame = frame_weak.lock();
         if (frame)
@@ -836,8 +837,8 @@ namespace nodetool
       // if no results for node, thread's lookup likely timed out
       if (result.size())
       {
-        for (const auto& addr_string : result)
-          full_addrs.insert(addr_string + ":" + std::to_string(cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT));
+        const auto seeds = parse_dns_seed_records(result, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
+        full_addrs.insert(seeds.begin(), seeds.end());
       }
       ++i;
     }

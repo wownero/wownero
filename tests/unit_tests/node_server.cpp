@@ -1451,3 +1451,26 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
 
 namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<test_core>>; }
 namespace cryptonote { template class t_cryptonote_protocol_handler<test_core>; }
+
+TEST(dns_seed_records, accepts_grouped_and_individual_endpoints)
+{
+  const auto seeds = nodetool::parse_dns_seed_records({
+    "198.51.100.10:34567; 203.0.113.20:34567", "198.51.100.30", "198.51.100.10:34567"}, 34567);
+  const std::set<std::string> expected{
+    "198.51.100.10:34567", "203.0.113.20:34567", "198.51.100.30:34567"};
+  EXPECT_EQ(expected, seeds);
+}
+
+TEST(dns_seed_records, ignores_invalid_and_local_endpoints)
+{
+  const auto seeds = nodetool::parse_dns_seed_records({
+    ";invalid;198.51.100.10:65536;127.0.0.1:34567;192.168.1.2:34567;0.0.0.0:34567;198.51.100.20:0;",
+    "203.0.113.20:34567"}, 34567);
+  EXPECT_EQ((std::set<std::string>{"203.0.113.20:34567"}), seeds);
+}
+
+TEST(dns_seed_records, empty_results_allow_hardcoded_fallback)
+{
+  EXPECT_TRUE(nodetool::parse_dns_seed_records({}, 34567).empty());
+  EXPECT_TRUE(nodetool::parse_dns_seed_records({"", "; ;", "invalid"}, 34567).empty());
+}
