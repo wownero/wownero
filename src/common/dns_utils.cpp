@@ -275,33 +275,13 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
   }
   else {
-    // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
+    // Keep the system resolver and hosts. Wownero has no bundled DNSSEC
+    // probe or fallback resolvers to replace this initialized context.
     ub_ctx_resolvconf(m_data->m_ub_context, NULL);
     ub_ctx_hosts(m_data->m_ub_context, NULL);
   }
 
   add_anchors(m_data->m_ub_context);
-
-  if (!DNS_PUBLIC)
-  {
-    // if no DNS_PUBLIC specified, we try a lookup to what we know
-    // should be a valid DNSSEC record, and switch to known good
-    // DNSSEC resolvers if verification fails
-    bool available, valid;
-    static const char *probe_hostname = "";
-    auto records = get_txt_record(probe_hostname, available, valid);
-    if (!valid)
-    {
-      MINFO("Failed to verify DNSSEC record from " << probe_hostname << ", falling back to TCP with well known DNSSEC resolvers");
-      ub_ctx_delete(m_data->m_ub_context);
-      m_data->m_ub_context = ub_ctx_create();
-      add_anchors(m_data->m_ub_context);
-      for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
-        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
-    }
-  }
 }
 
 DNSResolver::~DNSResolver()
