@@ -26,7 +26,7 @@ Unlike Opposing Projects.
 
 - [BasicSwap DEX](https://basicswapdex.com) ([Installation Guide](https://academy.particl.io/en/latest/basicswap-guides/basicswapguides_installation.html))
 - [NonLogs](https://nonlogs.com/trade/WOW-BTC)
-- [AltQuick](https://altquick.com/market/Wownero)
+- [AltQuick](https://altquick.com/market/wownero-bitcoin/)
 - [CexSwap](https://cexswap.cc)
 
 ## Wallets
